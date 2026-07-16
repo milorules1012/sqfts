@@ -96,12 +96,7 @@ check_plain_sqf = false
 
 ## Documentation
 
-- [Handbook](docs/Home.md)
-- [Getting Started](docs/Getting-Started.md)
-- [Architecture](docs/Architecture.md)
-- [CLI Reference](docs/CLI-Reference.md)
-- [Editor Support](docs/Editor-Support.md)
-- [Language specification and design history](docs/design-history/README.md)
+Check out our [Wiki page](https://github.com/milorules1012/sqfts/wiki)!
 
 ## License
 

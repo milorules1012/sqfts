@@ -7,7 +7,7 @@ use std::time::Duration;
 use dashmap::DashMap;
 use sqfts_check::Severity;
 use sqfts_db::CallKind;
-use sqfts_project::Project;
+use sqfts_project::{emit_file, Project};
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result as LspResult;
 use tower_lsp::lsp_types::*;
@@ -305,8 +305,16 @@ impl LanguageServer for Backend {
         }
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::FULL,
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        open_close: Some(true),
+                        change: Some(TextDocumentSyncKind::FULL),
+                        will_save: None,
+                        will_save_wait_until: None,
+                        save: Some(TextDocumentSyncSaveOptions::SaveOptions(SaveOptions {
+                            include_text: Some(true),
+                        })),
+                    },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions {
@@ -401,6 +409,51 @@ impl LanguageServer for Backend {
                 drop(guard);
                 self.recheck_all_open().await;
                 return;
+            }
+
+            let is_sqfts = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e == "sqfts")
+                && !path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.ends_with(".d.sqfts"));
+            if is_sqfts {
+                let cfg = {
+                    let guard = self.project.lock().await;
+                    guard.as_ref().and_then(|project| {
+                        project
+                            .config
+                            .build_on_save
+                            .then(|| project.config.clone())
+                    })
+                };
+                if let Some(cfg) = cfg {
+                    let text = params
+                        .text
+                        .or_else(|| self.documents.get(&uri).map(|e| e.value().clone()));
+                    if let Some(text) = text {
+                        match emit_file(&cfg, &path, &text) {
+                            Ok(dest) => {
+                                self.client
+                                    .log_message(
+                                        MessageType::INFO,
+                                        format!("wrote {}", dest.display()),
+                                    )
+                                    .await;
+                            }
+                            Err(e) => {
+                                self.client
+                                    .show_message(
+                                        MessageType::ERROR,
+                                        format!("sqfts build on save failed: {e:#}"),
+                                    )
+                                    .await;
+                            }
+                        }
+                    }
+                }
             }
         }
         if let Some(text) = self.documents.get(&uri) {

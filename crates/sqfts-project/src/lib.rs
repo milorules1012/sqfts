@@ -5,9 +5,11 @@
 mod config;
 mod declgen;
 mod discovery;
+mod emit;
 mod project;
 
 pub use config::{DeclgenConfig, SqftsConfig};
 pub use declgen::{generate_declarations, DeclgenOptions, GeneratedDecl};
 pub use discovery::{collect_decls, collect_sources};
+pub use emit::emit_file;
 pub use project::Project;

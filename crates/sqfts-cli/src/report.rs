@@ -11,8 +11,7 @@ use codespan_reporting::term::{
 };
 
 use sqfts_check::CheckResult;
-use sqfts_project::{collect_sources, Project, SqftsConfig};
-use sqfts_syntax::{erase, erase_with_runtime_params, EraseOptions};
+use sqfts_project::{collect_sources, emit_file, Project, SqftsConfig};
 
 /// Run `sqfts check`. Returns process exit code.
 pub fn run_check(cfg: &SqftsConfig) -> Result<i32> {
@@ -51,21 +50,7 @@ pub fn run_build(cfg: &SqftsConfig) -> Result<()> {
         }
         let src = std::fs::read_to_string(&path)
             .with_context(|| format!("reading {}", path.display()))?;
-        let erased = if cfg.emit_runtime_params {
-            erase_with_runtime_params(&src)?
-        } else {
-            erase(&src, &EraseOptions::default())?
-        };
-        let rel = path
-            .strip_prefix(&cfg.root)
-            .unwrap_or(&path)
-            .with_extension("sqf");
-        let dest = out_root.join(rel);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&dest, erased.text)
-            .with_context(|| format!("writing {}", dest.display()))?;
+        let dest = emit_file(cfg, &path, &src)?;
         eprintln!("wrote {}", dest.display());
     }
     Ok(())

@@ -384,8 +384,27 @@ impl CheckCtx<'_> {
                 }
             }
             Statement::AssignGlobal(name, expr, span) => {
+                // HEMTT classifies bare `_x = …` as AssignGlobal even when `_x` is a
+                // local; still enforce the annotated / inferred local type.
                 let ty = self.type_of(expr);
-                if let Some((expected, _)) = self.symbols.globals.get(name).cloned() {
+                if let Some(expected) = self.typed_locals.get(name).cloned() {
+                    if !is_assignable(&ty, &expected, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{name}` expected `{expected}`, got `{ty}`"),
+                            span.clone(),
+                        ));
+                    }
+                    self.symbols.define_local(name, expected);
+                } else if let Some(expected) = self.symbols.lookup_local(name).cloned() {
+                    if !is_assignable(&ty, &expected, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{name}` expected `{expected}`, got `{ty}`"),
+                            span.clone(),
+                        ));
+                    }
+                } else if let Some((expected, _)) = self.symbols.globals.get(name).cloned() {
                     if !is_assignable(&ty, &expected, &self.flags) {
                         self.diagnostics.push(Diagnostic::error(
                             StsCode::AssignMismatch,
@@ -796,5 +815,47 @@ project_serviceFee = true;
         assert_eq!(diag.message, "Use of an invalid token");
         assert!(!diag.message.contains('\u{1b}'));
         assert_eq!(diag.span, Some(0..1));
+    }
+
+    #[test]
+    fn bare_reassignment_checks_typed_local() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        // Bare `_testVar = …` is AssignGlobal in HEMTT, but must still respect
+        // the annotated local type from `private _testVar: number = …`.
+        let src = r#"private _testVar: number = 3;
+_testVar = "test";
+"#;
+        let result = check_source(src, "reassign.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004 for string→number local reassignment, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn bare_reassignment_checks_inferred_local() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _n = 3;
+_n = "test";
+"#;
+        let result = check_source(src, "reassign_inferred.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004 for string→number inferred local reassignment, got {:?}",
+            result.diagnostics
+        );
     }
 }

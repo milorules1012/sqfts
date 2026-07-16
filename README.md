@@ -1,4 +1,17 @@
 # SQFts
+**_Before the AI babble_- a note from the author:**
+
+This project was entirely created with the usage of AI/LLM tools. My experience with Rust is novice and code review was minimal to none outside of general QA. That said this **should not** be used for anything production if instability is a concern.
+
+So why did I make this?
+
+Having written SQF for years one of my largest gripes with the language is just how (painfully) dynamically typed it is. Having written the language for years for production to be used by tens of thousands of people, the amount of runtime script errors I have had to resolve over the years has been **brutal**. The goal of this project is to create a super set of SQF (similar to how TypeScript is for JavaScript) to create a more strictly typed way of writing SQF to catch errors during compile time versus runtime.
+
+My hope is that usage of LLM that I will be able to maintain and improve this repository to one day be _recommendable_ for production although right now (like mentioned earlier) this should be treated purely experimental.
+
+Anyway without further ado on to the AI babble...
+
+## Preamble
 
 SQFts is a TypeScript-style, gradually typed superset of Arma 3 SQF. Every valid SQF file remains valid SQFts, while optional annotations, declarations, and type aliases provide compile-time checks before being erased to plain SQF.
 

@@ -27,7 +27,6 @@ pub fn emit_file(cfg: &SqftsConfig, path: &Path, src: &str) -> Result<PathBuf> {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    std::fs::write(&dest, erased.text)
-        .with_context(|| format!("writing {}", dest.display()))?;
+    std::fs::write(&dest, erased.text).with_context(|| format!("writing {}", dest.display()))?;
     Ok(dest)
 }

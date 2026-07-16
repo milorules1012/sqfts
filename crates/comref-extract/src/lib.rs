@@ -25,7 +25,11 @@ pub struct ExtractResult {
 }
 
 /// Run a full extraction pipeline.
-pub fn run_extract(comref_dir: &Path, out_dir: &Path, do_diff: bool) -> anyhow::Result<ExtractResult> {
+pub fn run_extract(
+    comref_dir: &Path,
+    out_dir: &Path,
+    do_diff: bool,
+) -> anyhow::Result<ExtractResult> {
     let outcomes = parse_corpus(comref_dir)?;
     let stats = CoverageStats::from_outcomes(&outcomes);
 

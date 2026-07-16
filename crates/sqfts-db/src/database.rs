@@ -196,8 +196,8 @@ impl CommandDb {
 
     /// Build from an arma3-wiki `Wiki` instance (0.5.x left/right Param model).
     pub fn from_arma3_wiki(wiki: &arma3_wiki::Wiki, overlay: &Overlay) -> Result<Self> {
-        use arma3_wiki::model::Call;
         use crate::convert::wiki_value_to_type;
+        use arma3_wiki::model::Call;
 
         let mut commands = IndexMap::new();
         for (name, cmd) in wiki.commands().iter() {
@@ -284,8 +284,8 @@ impl CommandDb {
 }
 
 fn wiki_param_to_sig(fallback_name: &str, p: &arma3_wiki::model::Param) -> ParamSig {
-    use arma3_wiki::model::Param;
     use crate::convert::wiki_value_to_type;
+    use arma3_wiki::model::Param;
     let (name, optional) = match p {
         Param::Item(item) => (item.name().to_string(), item.optional()),
         _ => (fallback_name.to_string(), false),

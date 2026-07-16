@@ -222,9 +222,9 @@ impl ParseOutcome {
     pub fn name(&self) -> &str {
         match self {
             Self::Ok(cmd) => &cmd.name,
-            Self::Stub { name, .. }
-            | Self::Failed { name, .. }
-            | Self::Skipped { name, .. } => name,
+            Self::Stub { name, .. } | Self::Failed { name, .. } | Self::Skipped { name, .. } => {
+                name
+            }
         }
     }
 }

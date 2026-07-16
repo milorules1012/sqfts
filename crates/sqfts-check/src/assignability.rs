@@ -212,11 +212,7 @@ mod tests {
             Type::NumberLit(Scalar(0.0)),
             Type::NumberLit(Scalar(1.0)),
         ]);
-        assert!(is_assignable(
-            &Type::NumberLit(Scalar(1.0)),
-            &union,
-            &flags
-        ));
+        assert!(is_assignable(&Type::NumberLit(Scalar(1.0)), &union, &flags));
         assert!(!is_assignable(
             &Type::NumberLit(Scalar(2.0)),
             &union,

@@ -715,7 +715,27 @@ impl CheckCtx<'_> {
             )
         };
         if args.len() == 1 && !params.is_empty() {
-            return soft(&params[0].ty) || is_assignable(&args[0], &params[0].ty, flags);
+            if soft(&params[0].ty) || is_assignable(&args[0], &params[0].ty, flags) {
+                return true;
+            }
+
+            if params.len() > 1 {
+                if let Type::Tuple(elems) = &args[0] {
+                    return elems
+                        .iter()
+                        .zip(params.iter())
+                        .all(|((t, _), p)| soft(&p.ty) || is_assignable(t, &p.ty, flags));
+                }
+
+                if matches!(
+                    args[0],
+                    Type::Primitive(Primitive::Any | Primitive::Array) | Type::ArrayOf(_)
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
         }
         if args.len() == 2 && params.len() >= 2 {
             let left_ok = soft(&params[0].ty) || is_assignable(&args[0], &params[0].ty, flags);
@@ -835,6 +855,88 @@ _testVar = "test";
                 .iter()
                 .any(|d| d.code == StsCode::AssignMismatch),
             "expected STS2004 for string→number local reassignment, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn format_unpacks_unary_array_arguments() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _message: string = format ["%1 is here", player];
+"#;
+        let result = check_source(src, "format.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::ArgMismatch),
+            "unexpected arg mismatch: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::AssignMismatch),
+            "format should return string, got diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn other_multi_param_unary_array_commands_match() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _text = formatText ["%1", "hello"];
+titleText ["hi", "PLAIN"];
+"#;
+        let result = check_source(src, "multi_unary.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn single_param_unary_commands_still_reject_wrong_type() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let result = check_source(r#"random "abc";"#, "random.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ArgMismatch),
+            "expected arg mismatch, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn single_arg_format_still_matches_first_param() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let result = check_source(
+            r#"private _message: string = format "just a string";"#,
+            "format_single_arg.sqfts",
+            &db,
+            &decls,
+            &flags,
+        )
+        .unwrap();
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
             result.diagnostics
         );
     }

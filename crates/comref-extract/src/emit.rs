@@ -126,11 +126,7 @@ fn render_param(p: &Param) -> YamlParam<'_> {
 fn type_tag(t: &SqfType) -> String {
     match t {
         SqfType::ArrayOf(inner) => format!("Array of {}", type_tag(inner)),
-        SqfType::OneOf(parts) => parts
-            .iter()
-            .map(type_tag)
-            .collect::<Vec<_>>()
-            .join(" or "),
+        SqfType::OneOf(parts) => parts.iter().map(type_tag).collect::<Vec<_>>().join(" or "),
         SqfType::NumberEnum(values) => values
             .iter()
             .map(ToString::to_string)

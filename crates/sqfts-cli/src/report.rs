@@ -83,7 +83,7 @@ fn emit_diagnostics(
         }
         for (msg, span) in &d.related {
             cs = cs.with_labels(vec![
-                Label::secondary(file_id, span.start..span.end).with_message(msg),
+                Label::secondary(file_id, span.start..span.end).with_message(msg)
             ]);
         }
         term::emit(&mut writer.lock(), &config, files, &cs)?;

@@ -45,7 +45,10 @@ fn set_damage_two_syntaxes() {
     assert_eq!(cmd.syntaxes[0].params[1].typ, SqfType::Number);
     // Alternative syntax has optional params
     let alt = &cmd.syntaxes[1];
-    assert!(alt.params.iter().any(|p| p.name == "useEffects" && p.optional));
+    assert!(alt
+        .params
+        .iter()
+        .any(|p| p.name == "useEffects" && p.optional));
     assert!(alt.params.iter().any(|p| p.name == "killer"));
 }
 
@@ -70,7 +73,10 @@ fn foreach_strips_html_table() {
         first.params
     );
     assert!(
-        first.params.iter().any(|p| p.name == "array" && p.typ == SqfType::Array),
+        first
+            .params
+            .iter()
+            .any(|p| p.name == "array" && p.typ == SqfType::Array),
         "expected array param"
     );
 }
@@ -90,10 +96,7 @@ fn if_control_structure() {
     assert!(!cmd.syntaxes.is_empty());
     assert!(
         matches!(cmd.syntaxes[0].return_type, SqfType::IfType)
-            || cmd.syntaxes[0]
-                .return_type
-                .to_string()
-                .contains("If"),
+            || cmd.syntaxes[0].return_type.to_string().contains("If"),
         "got {:?}",
         cmd.syntaxes[0].return_type
     );
@@ -104,8 +107,14 @@ fn add_action_optionals() {
     let cmd = expect_ok("addAction");
     let syn = &cmd.syntaxes[0];
     assert!(syn.params.iter().any(|p| p.name == "object"));
-    assert!(syn.params.iter().any(|p| p.name == "title" && p.typ == SqfType::String));
-    assert!(syn.params.iter().any(|p| p.name == "arguments" && p.optional));
+    assert!(syn
+        .params
+        .iter()
+        .any(|p| p.name == "title" && p.typ == SqfType::String));
+    assert!(syn
+        .params
+        .iter()
+        .any(|p| p.name == "arguments" && p.optional));
     assert_eq!(syn.return_type, SqfType::Number);
 }
 

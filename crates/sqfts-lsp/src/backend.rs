@@ -104,9 +104,7 @@ impl Backend {
             ));
         }
         if let Some((ty, file)) = project.decls.symbols.globals.get(&name) {
-            return Some(format!(
-                "```sqfts\ndeclare {name}: {ty};\n```\n_{file}_"
-            ));
+            return Some(format!("```sqfts\ndeclare {name}: {ty};\n```\n_{file}_"));
         }
         if let Some(ovs) = project.db.overloads(&name) {
             let mut lines = vec![format!("**engine command** `{name}`\n")];
@@ -423,10 +421,7 @@ impl LanguageServer for Backend {
                 let cfg = {
                     let guard = self.project.lock().await;
                     guard.as_ref().and_then(|project| {
-                        project
-                            .config
-                            .build_on_save
-                            .then(|| project.config.clone())
+                        project.config.build_on_save.then(|| project.config.clone())
                     })
                 };
                 if let Some(cfg) = cfg {

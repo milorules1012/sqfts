@@ -29,11 +29,9 @@ pub fn collect_sources(cfg: &SqftsConfig, include_sqf: bool) -> Result<Vec<PathB
             if !p.is_file() {
                 continue;
             }
-            if p.components().any(|c| {
-                c.as_os_str()
-                    .to_str()
-                    .is_some_and(|s| s == out_dir_name)
-            }) {
+            if p.components()
+                .any(|c| c.as_os_str().to_str().is_some_and(|s| s == out_dir_name))
+            {
                 continue;
             }
             let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -68,8 +66,7 @@ pub fn collect_decls(cfg: &SqftsConfig) -> Result<Vec<PathBuf>> {
         for entry in WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
             let p = entry.path();
             if p.is_file()
-                && p
-                    .file_name()
+                && p.file_name()
                     .and_then(|n| n.to_str())
                     .is_some_and(|n| n.ends_with(".d.sqfts"))
             {
@@ -85,8 +82,7 @@ pub fn collect_decls(cfg: &SqftsConfig) -> Result<Vec<PathBuf>> {
         for entry in WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
             let p = entry.path();
             if p.is_file()
-                && p
-                    .file_name()
+                && p.file_name()
                     .and_then(|n| n.to_str())
                     .is_some_and(|n| n.ends_with(".d.sqfts"))
             {

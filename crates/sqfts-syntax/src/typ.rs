@@ -283,14 +283,13 @@ impl Type {
         match self {
             Self::StringLit(_) => Self::Primitive(Primitive::String),
             Self::NumberLit(_) => Self::Primitive(Primitive::Number),
-            Self::Union(parts) => Self::Union(parts.iter().map(Type::widened).collect()).normalize(),
+            Self::Union(parts) => {
+                Self::Union(parts.iter().map(Type::widened).collect()).normalize()
+            }
             Self::ArrayOf(inner) => Self::ArrayOf(Box::new(inner.widened())),
-            Self::Tuple(elems) => Self::Tuple(
-                elems
-                    .iter()
-                    .map(|(t, opt)| (t.widened(), *opt))
-                    .collect(),
-            ),
+            Self::Tuple(elems) => {
+                Self::Tuple(elems.iter().map(|(t, opt)| (t.widened(), *opt)).collect())
+            }
             other => other.clone(),
         }
     }

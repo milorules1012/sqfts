@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::parse::{command_name_from_stem, parse_comref_page};
 use crate::model::ParseOutcome;
+use crate::parse::{command_name_from_stem, parse_comref_page};
 
 #[derive(Debug, Clone)]
 pub struct CorpusEntry {
@@ -55,18 +55,15 @@ pub fn discover_engine_commands(comref_dir: &Path) -> anyhow::Result<Vec<CorpusE
         }
 
         seen_decoded_stems.insert(decoded);
-        by_name.insert(
-            name.clone(),
-            CorpusEntry {
-                path,
-                stem,
-                name,
-            },
-        );
+        by_name.insert(name.clone(), CorpusEntry { path, stem, name });
     }
 
     let mut entries: Vec<_> = by_name.into_values().collect();
-    entries.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
+    entries.sort_by(|a, b| {
+        a.name
+            .to_ascii_lowercase()
+            .cmp(&b.name.to_ascii_lowercase())
+    });
     Ok(entries)
 }
 

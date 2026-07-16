@@ -63,7 +63,10 @@ fn clean_type_text(raw: &str) -> String {
         s = s[2..s.len() - 2].to_string();
     }
     // HTML entities left over from scrape
-    s = s.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&");
+    s = s
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&");
     // Trailing punctuation noise
     s = s.trim_end_matches(['.', ';']).trim().to_string();
     // Collapse whitespace
@@ -138,7 +141,9 @@ fn match_position_format(s: &str) -> Option<SqfType> {
     ];
     for (key, typ) in &markers {
         if lower.contains(key)
-            && (lower.contains("format") || lower.starts_with("position") || lower.contains("array"))
+            && (lower.contains("format")
+                || lower.starts_with("position")
+                || lower.contains("array"))
         {
             // Prefer more specific over bare "position"
             if *key == "position"
@@ -185,10 +190,7 @@ fn single_match(value: &str) -> Option<SqfType> {
         .trim_matches(|c: char| c == '[' || c == ']' || c == '"' || c == '\'')
         .to_ascii_lowercase();
     // Strip trailing plural s for common types
-    let candidates = [
-        v.as_str(),
-        v.strip_suffix('s').unwrap_or(v.as_str()),
-    ];
+    let candidates = [v.as_str(), v.strip_suffix('s').unwrap_or(v.as_str())];
     for cand in candidates {
         let mapped = match cand {
             "anything" | "any" => Some(SqfType::Anything),

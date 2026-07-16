@@ -78,13 +78,9 @@ pub fn wiki_value_to_type(value: &Value) -> Type {
         Value::Waypoint => Type::Brand(Brand::Waypoint),
         Value::WhileType => Type::Primitive(Primitive::WhileType),
         Value::WithType => Type::Primitive(Primitive::WithType),
-        Value::OneOf(parts) => Type::Union(
-            parts
-                .iter()
-                .map(|v| wiki_value_to_type(&v.typ))
-                .collect(),
-        )
-        .normalize(),
+        Value::OneOf(parts) => {
+            Type::Union(parts.iter().map(|v| wiki_value_to_type(&v.typ)).collect()).normalize()
+        }
     }
 }
 

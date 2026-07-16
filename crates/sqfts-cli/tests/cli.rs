@@ -54,10 +54,17 @@ fn corpus_identity_when_env_set() {
         return;
     };
     let root = PathBuf::from(root);
-    assert!(root.is_dir(), "SQFTS_TEST_CORPUS is not a directory: {}", root.display());
+    assert!(
+        root.is_dir(),
+        "SQFTS_TEST_CORPUS is not a directory: {}",
+        root.display()
+    );
 
     let mut checked = 0usize;
-    for entry in walkdir::WalkDir::new(&root).into_iter().filter_map(|e| e.ok()) {
+    for entry in walkdir::WalkDir::new(&root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("sqf") {
             continue;
@@ -69,7 +76,8 @@ fn corpus_identity_when_env_set() {
         let erased = sqfts_syntax::erase(&src, &sqfts_syntax::EraseOptions::default())
             .unwrap_or_else(|e| panic!("erase failed on {}: {e}", path.display()));
         assert_eq!(
-            erased.text, src,
+            erased.text,
+            src,
             "E1 identity failed for {}",
             path.display()
         );

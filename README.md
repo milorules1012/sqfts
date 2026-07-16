@@ -7,7 +7,7 @@ So why did I make this?
 
 Having written SQF for years one of my largest gripes with the language is just how (painfully) dynamically typed it is. Having written the language for years for production to be used by tens of thousands of people, the amount of runtime script errors I have had to resolve over the years has been **brutal**. The goal of this project is to create a super set of SQF (similar to how TypeScript is for JavaScript) to create a more strictly typed way of writing SQF to catch errors during compile time versus runtime.
 
-My hope is that usage of LLM that I will be able to maintain and improve this repository to one day be _recommendable_ for production although right now (like mentioned earlier) this should be treated purely experimental.
+My hope is that with usage of AI/LLM that I will be able to maintain and improve this repository to one day be _recommendable_ for production as right now (like mentioned earlier) this should be treated purely experimental.
 
 Anyway without further ado on to the AI babble...
 

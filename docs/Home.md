@@ -41,6 +41,7 @@ private _owner = _vehicle getVariable ["project_owner", objNull];
 | [Everyday Types](Everyday-Types) | Primitives, `any`, `nothing`, `nil` |
 | [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands) | `T[]`, tuples, positions, waypoints, colors |
 | [Unions and Narrowing](Unions-and-Narrowing) | `A \| B` and `isNil` / `isEqualType` |
+| [Literal Types](Literal-Types) | String and numeric literal refinements |
 
 ### Syntax
 

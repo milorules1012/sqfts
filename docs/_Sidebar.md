@@ -8,6 +8,7 @@
 - [Everyday Types](Everyday-Types)
 - [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands)
 - [Unions and Narrowing](Unions-and-Narrowing)
+- [Literal Types](Literal-Types)
 
 ## Syntax
 - [Annotating Variables](Annotating-Variables)

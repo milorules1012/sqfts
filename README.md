@@ -5,9 +5,11 @@ This project was entirely created with the usage of AI/LLM tools. My experience 
 
 So why did I make this?
 
-Having written SQF for years one of my largest gripes with the language is just how (painfully) dynamically typed it is. In having worked on a code base that in production is enjoyed by thousands of people, the amount of runtime script errors I have had to resolve over the years has been **brutal**. The goal of this project is to create a super set of SQF (similar to how TypeScript is for JavaScript) to create a more strictly typed way of writing SQF to catch errors during compile time versus runtime.
+Having written SQF for years one of my largest gripes with the language is just how (painfully) dynamically typed it is. In having worked on a code base that in production is enjoyed by thousands of people, the amount of runtime script errors I have had to resolve over the years has been **brutal**. The goal of this project is to create a super set of SQF (similar to how TypeScript is for JavaScript) to create a more strictly typed way of writing SQF to catch errors during compile time versus runtime. For example:
 
-My hope is that with usage of AI/LLM that I will be able to maintain and improve this repository to one day be _recommendable_ for production as right now (like mentioned earlier) this should be treated purely experimental.
+<img width="1570" height="973" alt="image" src="https://github.com/user-attachments/assets/dc40c80b-dbfc-42b0-95a1-0b59773971df" />
+
+My hope is that with the usage of AI/LLM that I will be able to improve this repository enough to _one day_ be recommendable for production. As right now (like mentioned earlier) this should not be relied on unless you're okay with running into issues.
 
 Anyway without further ado on to the AI babble...
 

@@ -25,7 +25,9 @@ fn normalize_brands(ty: &Type, flags: &CheckFlags) -> Type {
                 .map(|(t, o)| (normalize_brands(t, flags), *o))
                 .collect(),
         ),
-        Type::Union(parts) => Type::Union(parts.iter().map(|p| normalize_brands(p, flags)).collect()),
+        Type::Union(parts) => {
+            Type::Union(parts.iter().map(|p| normalize_brands(p, flags)).collect())
+        }
         other => other.clone(),
     }
 }

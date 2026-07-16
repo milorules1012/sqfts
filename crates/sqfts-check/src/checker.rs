@@ -11,9 +11,7 @@ use hemtt_sqf::parser::database::Database as HemttDb;
 use hemtt_sqf::{BinaryCommand, Expression, Statement, Statements};
 use hemtt_workspace::Workspace;
 use sqfts_db::{CallKind, CommandDb};
-use sqfts_syntax::{
-    erase, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type,
-};
+use sqfts_syntax::{erase, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type};
 
 use crate::assignability::is_assignable;
 use crate::config::CheckFlags;
@@ -71,13 +69,21 @@ pub fn check_source(
     // Parse erased SQF via HEMTT (returns statements + Processed for span remap)
     let (statements, processed) = match parse_sqf(&erased_lf) {
         Ok(v) => v,
-        Err(msgs) => {
-            for m in msgs {
+        Err(diags) => {
+            for parse_diag in diags {
+                let span = parse_diag.span.map(|span| {
+                    let mapped = span_map.to_original(span.start)..span_map.to_original(span.end);
+                    if uses_crlf {
+                        lf_range_to_crlf(source, &mapped)
+                    } else {
+                        mapped
+                    }
+                });
                 result.diagnostics.push(Diagnostic {
                     code: StsCode::SyntaxError,
                     severity: Severity::Error,
-                    message: m,
-                    span: None,
+                    message: parse_diag.message,
+                    span,
                     related: vec![],
                 });
             }
@@ -180,37 +186,81 @@ pub fn check_source(
     Ok(result)
 }
 
+#[derive(Debug)]
+struct ParseDiagnostic {
+    message: String,
+    span: Option<Range<usize>>,
+}
+
 fn parse_sqf(
     source_lf: &str,
-) -> Result<(Statements, hemtt_workspace::reporting::Processed), Vec<String>> {
+) -> Result<(Statements, hemtt_workspace::reporting::Processed), Vec<ParseDiagnostic>> {
     let workspace = Workspace::builder()
         .memory()
         .finish(None, false, &PDriveOption::Disallow)
-        .map_err(|e| vec![e.to_string()])?;
+        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
     let path = workspace
         .join("check.sqf")
-        .map_err(|e| vec![e.to_string()])?;
+        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
     {
-        let mut f = path.create_file().map_err(|e| vec![e.to_string()])?;
+        let mut f = path
+            .create_file()
+            .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
         f.write_all(source_lf.as_bytes())
-            .map_err(|e| vec![e.to_string()])?;
+            .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
     }
-    let processed = Processor::run(&path, &PreprocessorOptions::default())
-        .map_err(|e| vec![format!("preprocessor: {e:?}")])?;
+    let processed = Processor::run(&path, &PreprocessorOptions::default()).map_err(|e| {
+        vec![ParseDiagnostic::without_span(format!(
+            "preprocessor: {e:?}"
+        ))]
+    })?;
     match hemtt_sqf::parser::run(&HemttDb::a3(false), &processed) {
         Ok(s) => Ok((s, processed)),
         Err(hemtt_sqf::parser::ParserError::ParsingError(codes))
         | Err(hemtt_sqf::parser::ParserError::LexingError(codes)) => Err(codes
             .iter()
-            .map(|c| {
-                c.diagnostic()
-                    .map(|d| {
-                        d.to_string(&hemtt_workspace::reporting::WorkspaceFiles::new())
-                    })
-                    .unwrap_or_else(|| "parse error".into())
-            })
+            .map(|c| ParseDiagnostic::from_code(&**c, source_lf))
             .collect()),
     }
+}
+
+impl ParseDiagnostic {
+    fn without_span(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            span: None,
+        }
+    }
+
+    fn from_code(code: &dyn hemtt_workspace::reporting::Code, source_lf: &str) -> Self {
+        if let Some(diag) = code.diagnostic() {
+            let span = diag
+                .labels
+                .first()
+                .map(|label| expand_empty_range(label.range().clone(), source_lf));
+            Self {
+                message: diag.message,
+                span,
+            }
+        } else {
+            Self {
+                message: code.message(),
+                span: None,
+            }
+        }
+    }
+}
+
+fn expand_empty_range(range: Range<usize>, source: &str) -> Range<usize> {
+    if range.start != range.end || range.start >= source.len() {
+        return range;
+    }
+
+    let mut end = range.start + 1;
+    while end < source.len() && !source.is_char_boundary(end) {
+        end += 1;
+    }
+    range.start..end
 }
 
 /// Map an AST span (into HEMTT processed / comment-stripped output) back to the
@@ -339,9 +389,7 @@ impl CheckCtx<'_> {
                     if !is_assignable(&ty, &expected, &self.flags) {
                         self.diagnostics.push(Diagnostic::error(
                             StsCode::AssignMismatch,
-                            format!(
-                                "`{ty}` not assignable to declared type `{expected}`"
-                            ),
+                            format!("`{ty}` not assignable to declared type `{expected}`"),
                             span.clone(),
                         ));
                     }
@@ -424,8 +472,7 @@ impl CheckCtx<'_> {
             }
         }
 
-        if name.eq_ignore_ascii_case("remoteExec") || name.eq_ignore_ascii_case("remoteExecCall")
-        {
+        if name.eq_ignore_ascii_case("remoteExec") || name.eq_ignore_ascii_case("remoteExecCall") {
             // left is args, right is [funcName, targets, ...]
             if let Expression::Array(elems, _) = right {
                 if let Some(Expression::String(func, fspan, _)) = elems.first() {
@@ -571,11 +618,7 @@ impl CheckCtx<'_> {
                     };
                     self.diagnostics.push(Diagnostic::error(
                         code,
-                        format!(
-                            "argument {} is `{got}`, expected `{}`",
-                            i + 1,
-                            param.ty
-                        ),
+                        format!("argument {} is `{got}`, expected `{}`", i + 1, param.ty),
                         span.clone(),
                     ));
                 }
@@ -666,14 +709,17 @@ impl CheckCtx<'_> {
             if let Type::Tuple(elems) = &args[1] {
                 let rest = &params[1..];
                 if elems.len() >= rest.iter().filter(|p| !p.optional).count() {
-                    return elems.iter().zip(rest.iter()).all(|((t, _), p)| {
-                        soft(&p.ty) || is_assignable(t, &p.ty, flags)
-                    });
+                    return elems
+                        .iter()
+                        .zip(rest.iter())
+                        .all(|((t, _), p)| soft(&p.ty) || is_assignable(t, &p.ty, flags));
                 }
             }
             if matches!(
                 args[1],
-                Type::Primitive(Primitive::Any | Primitive::Array) | Type::ArrayOf(_) | Type::Tuple(_)
+                Type::Primitive(Primitive::Any | Primitive::Array)
+                    | Type::ArrayOf(_)
+                    | Type::Tuple(_)
             ) {
                 return true;
             }
@@ -729,5 +775,26 @@ project_serviceFee = true;
             "expected STS2004, got {:?}",
             result.diagnostics
         );
+    }
+
+    #[test]
+    fn parser_diagnostics_are_plain_and_spanned() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags {
+            check_plain_sqf: true,
+            ..Default::default()
+        };
+
+        let result = check_source("@", "bad.sqf", &db, &decls, &flags).unwrap();
+        let diag = result
+            .diagnostics
+            .first()
+            .expect("expected parse diagnostic");
+
+        assert_eq!(diag.code, StsCode::SyntaxError);
+        assert_eq!(diag.message, "Use of an invalid token");
+        assert!(!diag.message.contains('\u{1b}'));
+        assert_eq!(diag.span, Some(0..1));
     }
 }

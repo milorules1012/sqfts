@@ -96,9 +96,7 @@ pub fn load_one(src: &str, file: &str, set: &mut DeclarationSet) -> Result<(), D
                         });
                     }
                 } else {
-                    set.symbols
-                        .globals
-                        .insert(name, (ty, file.to_string()));
+                    set.symbols.globals.insert(name, (ty, file.to_string()));
                 }
             }
             AnnotationKind::DeclareFn { name, params, ret } => {

@@ -19,10 +19,7 @@ pub enum TypeParseError {
 
 /// Parse a type expression from `input`. Returns the type and bytes consumed.
 pub fn parse_type(input: &str) -> Result<(Type, usize), TypeParseError> {
-    let mut p = Parser {
-        src: input,
-        pos: 0,
-    };
+    let mut p = Parser { src: input, pos: 0 };
     let ty = p.parse_union()?;
     Ok((ty.normalize(), p.pos))
 }
@@ -287,10 +284,7 @@ mod tests {
                 Type::StringLit("east".into()),
             ])
         );
-        assert_eq!(
-            parse_type("'a'").unwrap().0,
-            Type::StringLit("a".into())
-        );
+        assert_eq!(parse_type("'a'").unwrap().0, Type::StringLit("a".into()));
         assert_eq!(
             parse_type("\"say \"\"hi\"\"\"").unwrap().0,
             Type::StringLit("say \"hi\"".into())
@@ -307,10 +301,7 @@ mod tests {
                 Type::NumberLit(FloatOrd(2.0)),
             ])
         );
-        assert_eq!(
-            parse_type("-1").unwrap().0,
-            Type::NumberLit(FloatOrd(-1.0))
-        );
+        assert_eq!(parse_type("-1").unwrap().0, Type::NumberLit(FloatOrd(-1.0)));
     }
 
     #[test]

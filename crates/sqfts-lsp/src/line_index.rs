@@ -75,11 +75,7 @@ impl LineIndex {
             return self.len;
         }
         let line_start = self.line_starts[line];
-        let line_end = self
-            .line_starts
-            .get(line + 1)
-            .copied()
-            .unwrap_or(self.len);
+        let line_end = self.line_starts.get(line + 1).copied().unwrap_or(self.len);
         let line_text = &text[line_start..line_end];
         let mut utf16 = 0u32;
         for (byte_idx, ch) in line_text.char_indices() {
@@ -88,15 +84,13 @@ impl LineIndex {
             }
             utf16 += ch.len_utf16() as u32;
         }
-        line_end.saturating_sub(
-            if line_text.ends_with("\r\n") {
-                2
-            } else if line_text.ends_with('\n') || line_text.ends_with('\r') {
-                1
-            } else {
-                0
-            },
-        )
+        line_end.saturating_sub(if line_text.ends_with("\r\n") {
+            2
+        } else if line_text.ends_with('\n') || line_text.ends_with('\r') {
+            1
+        } else {
+            0
+        })
     }
 
     /// Byte range → LSP Range.
@@ -165,10 +159,13 @@ mod tests {
         let idx = LineIndex::new(text);
         let pos = idx.position(text, text.find('b').unwrap());
         assert_eq!(pos.character, 3); // 'a' + 2 for emoji
-        let off = idx.offset(text, Position {
-            line: 0,
-            character: 3,
-        });
+        let off = idx.offset(
+            text,
+            Position {
+                line: 0,
+                character: 3,
+            },
+        );
         assert_eq!(off, text.find('b').unwrap());
     }
 

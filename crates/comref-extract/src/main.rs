@@ -6,7 +6,10 @@ use comref_extract::run_extract;
 use comref_extract::wiki_upstream::emit_wiki_upstream_from_out;
 
 #[derive(Parser)]
-#[command(name = "comref-extract", about = "Extract typed SQF engine-command signatures from COMREF-md")]
+#[command(
+    name = "comref-extract",
+    about = "Extract typed SQF engine-command signatures from COMREF-md"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

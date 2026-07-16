@@ -434,6 +434,8 @@ private _owner: object = _vehicle getVariable ["project_owner", objNull];
         assert!(!erased.text.contains("type feeTier"));
         assert!(erased.text.contains("\"_vehicle\""));
         assert!(erased.text.contains("[\"_fee\", 0]"));
-        assert!(erased.text.contains("private _owner = _vehicle getVariable"));
+        assert!(erased
+            .text
+            .contains("private _owner = _vehicle getVariable"));
     }
 }

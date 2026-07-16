@@ -156,12 +156,17 @@ fn parse_wiki_return(ret: Option<&YamlValue>) -> SqfType {
     // ret: [Type, desc] or { type: Type, desc: ... } or bare Type
     match ret {
         YamlValue::Sequence(seq) => {
-            let typ = seq.first().map(yaml_type_to_sqf).unwrap_or(SqfType::Unknown);
+            let typ = seq
+                .first()
+                .map(yaml_type_to_sqf)
+                .unwrap_or(SqfType::Unknown);
             typ
         }
         YamlValue::Mapping(map) => {
             let key = YamlValue::String("type".into());
-            map.get(&key).map(yaml_type_to_sqf).unwrap_or(SqfType::Unknown)
+            map.get(&key)
+                .map(yaml_type_to_sqf)
+                .unwrap_or(SqfType::Unknown)
         }
         other => yaml_type_to_sqf(other),
     }
@@ -232,9 +237,7 @@ fn yaml_type_to_sqf(node: &YamlValue) -> SqfType {
                                 let types: Vec<SqfType> = parts
                                     .iter()
                                     .filter_map(|p| {
-                                        p.get("type")
-                                            .or_else(|| p.get("typ"))
-                                            .map(yaml_type_to_sqf)
+                                        p.get("type").or_else(|| p.get("typ")).map(yaml_type_to_sqf)
                                     })
                                     .collect();
                                 if types.len() == 1 {
@@ -285,7 +288,10 @@ fn yaml_type_to_sqf(node: &YamlValue) -> SqfType {
 }
 
 /// Compare extracted engine commands against a local arma3-wiki commands directory.
-pub fn diff_against_wiki_dir(commands: &[ExtractedCommand], wiki_commands_dir: &Path) -> DiffReport {
+pub fn diff_against_wiki_dir(
+    commands: &[ExtractedCommand],
+    wiki_commands_dir: &Path,
+) -> DiffReport {
     let wiki = match load_wiki_index(wiki_commands_dir) {
         Ok(w) => w,
         Err(e) => {
@@ -410,7 +416,10 @@ pub fn diff_against_wiki_dir(commands: &[ExtractedCommand], wiki_commands_dir: &
 }
 
 /// Compare against arma3-wiki, cloning `dist` into `cache_root` if needed.
-pub fn diff_against_wiki(commands: &[ExtractedCommand], cache_root: &Path) -> anyhow::Result<DiffReport> {
+pub fn diff_against_wiki(
+    commands: &[ExtractedCommand],
+    cache_root: &Path,
+) -> anyhow::Result<DiffReport> {
     let dir = ensure_wiki_commands_dir(cache_root)?;
     Ok(diff_against_wiki_dir(commands, &dir))
 }

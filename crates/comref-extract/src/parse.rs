@@ -72,10 +72,9 @@ pub fn parse_comref_page(source_stem: &str, content: &str) -> ParseOutcome {
 
     // Require at least one non-unknown return type OR at least one typed param
     // (some nullary commands only have a return).
-    let has_useful_types = syntaxes.iter().any(|s| {
-        !s.return_type.is_unknown()
-            || s.params.iter().any(|p| !p.typ.is_unknown())
-    });
+    let has_useful_types = syntaxes
+        .iter()
+        .any(|s| !s.return_type.is_unknown() || s.params.iter().any(|p| !p.typ.is_unknown()));
     if !has_useful_types {
         return ParseOutcome::Stub {
             name,
@@ -321,10 +320,7 @@ fn collect_syntax_blocks(lines: &[&str]) -> Result<Vec<SyntaxBlock>, String> {
     let mut headers: Vec<(usize, &str)> = Vec::new();
     for (i, &line) in lines.iter().enumerate() {
         let t = line.trim();
-        if t == "### Syntax"
-            || t == "### Alternative Syntax"
-            || t.starts_with("### Syntax ")
-        {
+        if t == "### Syntax" || t == "### Alternative Syntax" || t.starts_with("### Syntax ") {
             headers.push((i, t));
         }
         if t == "### Examples" || t == "### Additional Information" || t == "### Notes" {
@@ -365,17 +361,14 @@ fn collect_syntax_blocks(lines: &[&str]) -> Result<Vec<SyntaxBlock>, String> {
             .ok_or_else(|| "missing Return Value: label".to_string())?;
 
         // Bare version number on its own line after Return Value (syntactic since)
-        let since = slice
-            .iter()
-            .rev()
-            .find_map(|l| {
-                let t = l.trim();
-                if version_re().is_match(t) {
-                    Some(t.to_string())
-                } else {
-                    None
-                }
-            });
+        let since = slice.iter().rev().find_map(|l| {
+            let t = l.trim();
+            if version_re().is_match(t) {
+                Some(t.to_string())
+            } else {
+                None
+            }
+        });
 
         if syntax_text.contains("*Syntax needed*") {
             return Err("stub syntax".into());
@@ -481,7 +474,9 @@ fn infer_call_shape(command: &str, syntax_text: &str) -> Result<CallShape, Strin
     let text = syntax_text.trim();
     // Nullary: syntax is just the command name (possibly bold already stripped)
     if text.eq_ignore_ascii_case(command)
-        || text.replace(' ', "").eq_ignore_ascii_case(&command.replace(' ', ""))
+        || text
+            .replace(' ', "")
+            .eq_ignore_ascii_case(&command.replace(' ', ""))
     {
         return Ok(CallShape::Nular);
     }
@@ -582,9 +577,7 @@ fn parse_params(params_text: &str) -> Result<Vec<Param>, String> {
 
         // Skip bullet sub-lines (belong to previous param description / prose unions).
         // Do not treat bold markdown `**name**:` as a bullet.
-        if (line.starts_with("- ") || line.starts_with("* "))
-            && !line.starts_with("**")
-        {
+        if (line.starts_with("- ") || line.starts_with("* ")) && !line.starts_with("**") {
             i += 1;
             continue;
         }
@@ -652,9 +645,7 @@ fn strip_html_tables(s: &str) -> String {
 
 fn html_table_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r"(?is)<table\b[^>]*>.*?</table>").expect("regex")
-    })
+    RE.get_or_init(|| Regex::new(r"(?is)<table\b[^>]*>.*?</table>").expect("regex"))
 }
 
 fn parse_since_line(line: &str) -> Option<String> {
@@ -664,10 +655,7 @@ fn parse_since_line(line: &str) -> Option<String> {
         let ver = rest.trim();
         if version_re().is_match(ver) {
             // Preserve digits from original
-            let digits: String = t
-                .chars()
-                .skip_while(|c| !c.is_ascii_digit())
-                .collect();
+            let digits: String = t.chars().skip_while(|c| !c.is_ascii_digit()).collect();
             let digits = digits.split_whitespace().next().unwrap_or("").to_string();
             if version_re().is_match(&digits) {
                 return Some(digits);
@@ -678,7 +666,11 @@ fn parse_since_line(line: &str) -> Option<String> {
 }
 
 fn looks_like_param_start(line: &str) -> bool {
-    let t = line.trim().trim_start_matches('*').trim_start_matches('*').trim();
+    let t = line
+        .trim()
+        .trim_start_matches('*')
+        .trim_start_matches('*')
+        .trim();
     // `name: Type` — name without spaces (or bold-wrapped), then colon
     if let Some((name, rest)) = t.split_once(':') {
         let name = name.trim().trim_matches('*').trim();
@@ -687,7 +679,10 @@ fn looks_like_param_start(line: &str) -> bool {
             // Some use spaces rarely; allow if rest looks like a type.
         }
         let rest = rest.trim();
-        if !rest.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '*')
+        if !rest.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '*')
         {
             return true;
         }
@@ -779,12 +774,10 @@ fn parse_optional_default(desc: &str) -> (bool, Option<String>, String) {
 
     // (Optional, default X) or (Optional)
     if let Some(start) = desc.find("(Optional").or_else(|| {
-        desc.to_ascii_lowercase()
-            .find("(optional")
-            .map(|i| {
-                // map back — same byte index for ASCII
-                i
-            })
+        desc.to_ascii_lowercase().find("(optional").map(|i| {
+            // map back — same byte index for ASCII
+            i
+        })
     }) {
         if let Some(end_rel) = desc[start..].find(')') {
             let end = start + end_rel;

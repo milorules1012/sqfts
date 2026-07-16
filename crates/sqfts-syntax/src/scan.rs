@@ -286,8 +286,8 @@ fn ident_at(src: &str, i: usize, word: &str) -> bool {
         return false;
     }
     let end = i + word.len();
-    let before_ok = i == 0
-        || !src.as_bytes()[i - 1].is_ascii_alphanumeric() && src.as_bytes()[i - 1] != b'_';
+    let before_ok =
+        i == 0 || !src.as_bytes()[i - 1].is_ascii_alphanumeric() && src.as_bytes()[i - 1] != b'_';
     let after_ok = end >= src.len()
         || !src.as_bytes()[end].is_ascii_alphanumeric() && src.as_bytes()[end] != b'_';
     before_ok && after_ok
@@ -576,10 +576,7 @@ fn try_typed_private(src: &str, start: usize) -> Result<Option<Annotation>, Scan
     }
     // Has initializer — only delete `: Type` (and optional space before)
     Ok(Some(Annotation {
-        span: space_before
-            .as_ref()
-            .map(|s| s.start)
-            .unwrap_or(colon)..type_end,
+        span: space_before.as_ref().map(|s| s.start).unwrap_or(colon)..type_end,
         kind: AnnotationKind::TypedPrivate {
             name,
             ty,
@@ -778,7 +775,13 @@ fn is_cast_context(src: &str, i: usize) -> bool {
     }
     let c = src.as_bytes()[j - 1];
     // identifier/number/string/)/]/closing
-    c.is_ascii_alphanumeric() || c == b'_' || c == b')' || c == b']' || c == b'}' || c == b'"' || c == b'\''
+    c.is_ascii_alphanumeric()
+        || c == b'_'
+        || c == b')'
+        || c == b']'
+        || c == b'}'
+        || c == b'"'
+        || c == b'\''
 }
 
 fn try_cast(src: &str, start: usize) -> Result<Option<Annotation>, ScanError> {

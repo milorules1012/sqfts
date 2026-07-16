@@ -70,6 +70,7 @@ sources = ["."]
 declarations = ["."]
 out_dir = "out/sqf"
 emit_runtime_params = false
+build_on_save = true
 
 [flags]
 no_implicit_any = false

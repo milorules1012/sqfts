@@ -1,0 +1,15 @@
+// File: fn_impoundVehicle.sqfts
+// Author: Example Mission
+// Description: Impounds a vehicle and charges the owner.
+type feeTier = [number, number];
+
+params [
+    "_vehicle": object,
+    "_fee": number = 0
+];
+
+private _owner: object = _vehicle getVariable ["project_owner", objNull];
+if (isNull _owner) exitWith { false };
+
+private _pos = getPosATL _vehicle;
+[_owner, _fee] call TAG_fnc_checkPayment

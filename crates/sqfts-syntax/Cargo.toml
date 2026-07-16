@@ -1,0 +1,12 @@
+[package]
+name = "sqfts-syntax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQFts annotation scanner, type parser, and byte-stable eraser"
+
+[dependencies]
+thiserror.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1"

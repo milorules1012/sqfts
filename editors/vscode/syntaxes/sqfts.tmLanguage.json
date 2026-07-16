@@ -1,0 +1,162 @@
+{
+  "scopeName": "source.sqfts",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#annotations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#user-functions" },
+    { "include": "source.sqfts.engine-commands" },
+    { "include": "#numbers" },
+    { "include": "#locals" },
+    { "include": "#globals" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.sqfts",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.sqfts",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sqfts",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            { "name": "constant.character.escape.sqfts", "match": "\"\"" }
+          ]
+        },
+        {
+          "name": "string.quoted.single.sqfts",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "name": "constant.character.escape.sqfts", "match": "''" }
+          ]
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "meta.declare.sqfts",
+          "begin": "\\b(declare)\\b",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.declare.sqfts" }
+          },
+          "end": ";",
+          "patterns": [
+            { "include": "#types" },
+            { "include": "#strings" },
+            { "include": "#user-functions" },
+            {
+              "match": "\\bfunction\\b",
+              "name": "keyword.control.function.sqfts"
+            }
+          ]
+        },
+        {
+          "name": "meta.type-alias.sqfts",
+          "begin": "\\b(type)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.type.sqfts" },
+            "2": { "name": "entity.name.type.alias.sqfts" }
+          },
+          "end": ";",
+          "patterns": [{ "include": "#types" }]
+        },
+        {
+          "name": "meta.interface.sqfts",
+          "begin": "\\b(interface)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.interface.sqfts" },
+            "2": { "name": "entity.name.type.interface.sqfts" }
+          },
+          "end": "\\}",
+          "patterns": [
+            { "include": "#types" },
+            { "include": "#comments" }
+          ]
+        },
+        {
+          "match": "\\bas\\b",
+          "name": "keyword.operator.as.sqfts"
+        },
+        {
+          "match": "(:)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\[\\])?(?:\\s*\\|\\s*[A-Za-z_][A-Za-z0-9_]*(?:\\[\\])?)*)",
+          "captures": {
+            "1": { "name": "punctuation.separator.annotation.sqfts" },
+            "2": { "name": "support.type.sqfts" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.sqfts",
+          "match": "\\b(private|params|if|then|else|exitWith|while|do|for|from|to|step|foreach|forEach|switch|case|default|try|catch|throw|with|call|spawn|execVM|execFSM|remoteExec|remoteExecCall|compile|compileFinal|isNil|isNull|isEqualTo|isEqualType|nil|true|false)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.sqfts",
+          "match": "\\b(any|nothing|number|string|boolean|array|code|object|group|side|config|control|display|task|location|namespace|hashMap|teamMember|scriptHandle|diaryRecord|structuredText|exception|edenEntity|edenId|waypoint|turretPath|treePath|unitLoadout|color|position|position2D|position3D|positionATL|positionASL|positionASLW|positionAGL|positionAGLS|positionRelative|vector2D|vector3D)\\b"
+        }
+      ]
+    },
+    "user-functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.user.sqfts",
+          "match": "\\b[A-Za-z][A-Za-z0-9]*_fnc_[A-Za-z0-9_]+\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.sqfts",
+          "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "locals": {
+      "patterns": [
+        {
+          "name": "variable.other.local.sqfts",
+          "match": "\\b_[A-Za-z0-9_]+\\b"
+        }
+      ]
+    },
+    "globals": {
+      "patterns": [
+        {
+          "name": "variable.other.global.sqfts",
+          "match": "\\b(BIS_|BIN_|TAG_|SERVER_)[A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.sqfts",
+          "match": "\\b[A-Za-z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

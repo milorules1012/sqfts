@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/comref-extract",
+    "crates/hemtt-sqf",
+    "crates/sqfts-syntax",
+    "crates/sqfts-db",
+    "crates/sqfts-check",
+    "crates/sqfts-project",
+    "crates/sqfts-cli",
+    "crates/sqfts-lsp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-2.0"
+authors = ["SQFts Contributors"]
+repository = "https://github.com/example/sqfts"
+
+[workspace.dependencies]
+# Local crates
+comref-extract = { path = "crates/comref-extract" }
+hemtt-sqf = { path = "crates/hemtt-sqf", default-features = false, features = ["parser"] }
+sqfts-syntax = { path = "crates/sqfts-syntax" }
+sqfts-db = { path = "crates/sqfts-db" }
+sqfts-check = { path = "crates/sqfts-check" }
+sqfts-project = { path = "crates/sqfts-project" }
+sqfts-lsp = { path = "crates/sqfts-lsp" }
+
+# HEMTT (pinned — see crates/hemtt-sqf/UPSTREAM.md)
+hemtt-common = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f" }
+hemtt-workspace = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f" }
+hemtt-preprocessor = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f" }
+
+# Shared third-party
+anyhow = "1"
+arma3-wiki = "0.5.5"
+clap = { version = "4", features = ["derive"] }
+codespan-reporting = { version = "0.13", features = ["serialization"] }
+indexmap = { version = "2", features = ["serde"] }
+percent-encoding = "2"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+thiserror = "2"
+toml = "0.8"
+walkdir = "2"

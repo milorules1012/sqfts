@@ -1,0 +1,7 @@
+type moneyTarget = object | group;
+
+declare project_serviceFee: number;
+declare project_playerCash: number;
+
+declare function TAG_fnc_checkPayment(_unit: object, _amount: number): boolean;
+declare function TAG_fnc_impoundVehicle(_vehicle: object, _fee?: number): boolean;

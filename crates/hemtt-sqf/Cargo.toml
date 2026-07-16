@@ -1,0 +1,34 @@
+[package]
+name = "hemtt-sqf"
+version = "1.0.0"
+edition = "2024"
+description = "Vendored SQF library from HEMTT (parser-focused for SQFts)"
+license = "GPL-2.0"
+publish = false
+
+[lib]
+bench = false
+
+[dependencies]
+# Sibling HEMTT crates from the pinned upstream checkout (see UPSTREAM.md).
+hemtt-common = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f" }
+hemtt-workspace = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f" }
+hemtt-lzo = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b58f381a025e9b44fdfa57a610f217e35d332f", optional = true }
+
+arma3-wiki = "0.4.5"
+automod = "1.0.16"
+byteorder = { version = "1.5", optional = true }
+chumsky = { version = "0.9.3", optional = true }
+float-ord = "0.3.2"
+linkme = "0.3.36"
+indexmap = { version = "2", features = ["serde"] }
+rustversion = "1.0"
+thiserror = "2"
+toml = "1"
+tracing = "0.1"
+regex = "1"
+
+[features]
+default = ["parser"]
+compiler = ["byteorder", "hemtt-lzo"]
+parser = ["chumsky"]

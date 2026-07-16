@@ -1,0 +1,30 @@
+[package]
+name = "sqfts-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQFts language server (LSP)"
+
+[lib]
+name = "sqfts_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sqfts-language-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+dashmap = "6"
+serde_json = "1"
+sqfts-check.workspace = true
+sqfts-db.workspace = true
+sqfts-project.workspace = true
+sqfts-syntax.workspace = true
+tokio = { version = "1", features = ["full"] }
+tower-lsp = "0.20"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+sqfts-check.workspace = true

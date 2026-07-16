@@ -1,0 +1,22 @@
+[package]
+name = "sqfts-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQFts command-line interface (check / build / declgen)"
+
+[[bin]]
+name = "sqfts"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+codespan-reporting.workspace = true
+sqfts-check.workspace = true
+sqfts-project.workspace = true
+sqfts-syntax.workspace = true
+
+[dev-dependencies]
+sqfts-syntax.workspace = true
+walkdir.workspace = true

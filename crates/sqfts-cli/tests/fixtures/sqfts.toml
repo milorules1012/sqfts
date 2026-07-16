@@ -1,0 +1,7 @@
+sources = ["."]
+declarations = ["."]
+out_dir = "out_sqf"
+emit_runtime_params = false
+
+[flags]
+check_plain_sqf = true

@@ -1,0 +1,18 @@
+[package]
+name = "sqfts-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQFts type checker"
+
+[dependencies]
+hemtt-sqf.workspace = true
+hemtt-preprocessor.workspace = true
+hemtt-workspace.workspace = true
+hemtt-common.workspace = true
+sqfts-syntax.workspace = true
+sqfts-db.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+indexmap.workspace = true
+serde = { workspace = true, features = ["derive"] }

@@ -1,0 +1,8 @@
+/target
+/out
+**/.wiki-cache/
+**/*.rs.bk
+.DS_Store
+Cargo.lock
+_trim_types.py
+/vendor/

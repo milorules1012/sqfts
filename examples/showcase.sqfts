@@ -1,0 +1,47 @@
+// File: examples/showcase.sqfts
+// Author: SQFts
+// Description: Public showcase — typed SQF with intentional errors for demos.
+//
+// How to verify:
+// 1. Open this folder with the SQFts extension installed.
+// 2. Language mode should be "SQFts".
+// 3. Expect red squiggles on the BAD lines below.
+// 4. Hover setDamage, getPosATL, or DEMO_fnc_refuel for signatures.
+
+declare function DEMO_fnc_refuel(_vehicle: object, _liters: number): boolean;
+declare function DEMO_fnc_spawnCargo(_row: [string, number, boolean]): object;
+declare function DEMO_fnc_notify(_text: string, _seconds?: number): nothing;
+declare demo_debug: boolean;
+
+params [
+    "_truck": object,
+    "_liters": number = 50,
+    "_label"?: string
+];
+
+private _pos: positionATL = getPosATL _truck;
+private _row: [string, number, boolean] = ["B_Truck_01_box_F", 1200, true];
+private _tint: [number, number, number, number] = [0.2, 0.6, 1, 0.8];
+private _ok: boolean = [_truck, _liters] call DEMO_fnc_refuel;
+private _crate: object = [_row] call DEMO_fnc_spawnCargo;
+_truck setDamage 0;
+demo_debug = true;
+
+// Brand-safe: ATL → ASL via engine converter (not a cast).
+private _asl: positionASL = ATLToASL _pos;
+
+// Gradual hole: assert element type after an untyped engine array.
+private _crew = (crew _truck) as object[];
+private _driver: object = _crew # 0;
+
+["Cargo ready", 3] call DEMO_fnc_notify;
+hint str (alive _truck && {_ok});
+
+// --- BAD: STS2003 — string where number expected ---
+_truck setDamage "boom";
+
+// --- BAD: STS2003 — wrong arg type on declared call ---
+[player, "not-liters"] call DEMO_fnc_refuel;
+
+// --- BAD: STS2004 — positionATL is not assignable to positionASL ---
+private _oops: positionASL = _pos;

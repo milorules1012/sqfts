@@ -1,0 +1,7 @@
+.vscode-test/
+node_modules/
+out/
+server/
+*.vsix
+# Generated; rebuild with npm run gen-grammar
+# (kept in repo so package works without out/commands present)

@@ -6,6 +6,7 @@ license.workspace = true
 description = "SQFts annotation scanner, type parser, and byte-stable eraser"
 
 [dependencies]
+float-ord.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

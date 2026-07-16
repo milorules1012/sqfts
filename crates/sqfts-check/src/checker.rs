@@ -380,7 +380,7 @@ impl CheckCtx<'_> {
                             span.clone(),
                         ));
                     }
-                    self.symbols.define_local(name, ty);
+                    self.symbols.define_local(name, ty.widened());
                 }
             }
             Statement::AssignGlobal(name, expr, span) => {
@@ -422,8 +422,8 @@ impl CheckCtx<'_> {
 
     fn type_of(&mut self, expr: &Expression) -> Type {
         match expr {
-            Expression::Number(_, _) => Type::Primitive(Primitive::Number),
-            Expression::String(_, _, _) => Type::Primitive(Primitive::String),
+            Expression::Number(n, _) => Type::NumberLit(*n),
+            Expression::String(s, _, _) => Type::StringLit(s.to_string()),
             Expression::Boolean(_, _) => Type::Primitive(Primitive::Boolean),
             Expression::Array(elems, _) => {
                 let tys: Vec<Type> = elems.iter().map(|e| self.type_of(e)).collect();
@@ -855,6 +855,44 @@ _n = "test";
                 .iter()
                 .any(|d| d.code == StsCode::AssignMismatch),
             "expected STS2004 for string→number inferred local reassignment, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn literal_widening_allows_reassignment() {
+        let db = CommandDb::default();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let src = r#"private _side = "west";
+_side = "east";
+"#;
+        let result = check_source(src, "literal_widen.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::AssignMismatch),
+            "unexpected assign errors: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn annotated_literal_union_enforced() {
+        let db = CommandDb::default();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let src = r#"private _mode: "west" | "east" = "west";
+_mode = "north";
+"#;
+        let result = check_source(src, "literal_union.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected assign mismatch for invalid literal, got {:?}",
             result.diagnostics
         );
     }

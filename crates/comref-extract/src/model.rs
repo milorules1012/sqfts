@@ -26,10 +26,14 @@ pub enum SqfType {
     Namespace,
     Nothing,
     Number,
+    /// Numeric enum from wiki (`0`, `1`, …).
+    NumberEnum(Vec<i32>),
     Object,
     ScriptHandle,
     Side,
     String,
+    /// String enum from wiki (`"west"`, …).
+    StringEnum(Vec<String>),
     StructuredText,
     SwitchType,
     Task,
@@ -90,10 +94,16 @@ impl SqfType {
             Self::Namespace => "Namespace".into(),
             Self::Nothing => "Nothing".into(),
             Self::Number => "Number".into(),
+            Self::NumberEnum(values) => values
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("Or"),
             Self::Object => "Object".into(),
             Self::ScriptHandle => "ScriptHandle".into(),
             Self::Side => "Side".into(),
             Self::String => "String".into(),
+            Self::StringEnum(values) => values.join("Or"),
             Self::StructuredText => "StructuredText".into(),
             Self::SwitchType => "SwitchType".into(),
             Self::Task => "Task".into(),

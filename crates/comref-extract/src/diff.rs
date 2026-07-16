@@ -252,8 +252,9 @@ fn yaml_type_to_sqf(node: &YamlValue) -> SqfType {
                         | "ArrayEdenEntities" => SqfType::Array,
                         "ArrayColor" | "ArrayColorRgb" | "ArrayColorRgba" => SqfType::Color,
                         "HashMapUnknown" | "HashMapKnownKeys" => SqfType::HashMap,
-                        "NumberEnum" | "NumberRange" => SqfType::Number,
-                        "StringEnum" => SqfType::String,
+                        "NumberRange" => SqfType::Number,
+                        "NumberEnum" => parse_yaml_number_enum(v).unwrap_or(SqfType::Number),
+                        "StringEnum" => parse_yaml_string_enum(v).unwrap_or(SqfType::String),
                         other => parse_type_phrase(other),
                     };
                 }
@@ -427,6 +428,12 @@ fn types_compatible(a: &SqfType, b: &SqfType) -> bool {
         (SqfType::OneOf(parts), other) | (other, SqfType::OneOf(parts)) => {
             parts.iter().any(|p| types_compatible(p, other))
         }
+        (SqfType::NumberEnum(_), SqfType::Number) | (SqfType::Number, SqfType::NumberEnum(_)) => {
+            true
+        }
+        (SqfType::StringEnum(_), SqfType::String) | (SqfType::String, SqfType::StringEnum(_)) => {
+            true
+        }
         (l, r) if is_positiony(l) && is_positiony(r) => true,
         (l, SqfType::Array) | (SqfType::Array, l) if is_positiony(l) => true,
         _ => false,
@@ -464,4 +471,42 @@ pub fn emit_patches(report: &DiffReport, out_dir: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_yaml_number_enum(v: &YamlValue) -> Option<SqfType> {
+    let YamlValue::Sequence(seq) = v else {
+        return None;
+    };
+    let mut nums = Vec::new();
+    for item in seq {
+        if let Some(n) = item.get("value").and_then(YamlValue::as_i64) {
+            nums.push(n as i32);
+        } else if let Some(n) = item.as_i64() {
+            nums.push(n as i32);
+        }
+    }
+    if nums.is_empty() {
+        None
+    } else {
+        Some(SqfType::NumberEnum(nums))
+    }
+}
+
+fn parse_yaml_string_enum(v: &YamlValue) -> Option<SqfType> {
+    let YamlValue::Sequence(seq) = v else {
+        return None;
+    };
+    let mut values = Vec::new();
+    for item in seq {
+        if let Some(s) = item.get("value").and_then(YamlValue::as_str) {
+            values.push(s.to_string());
+        } else if let Some(s) = item.as_str() {
+            values.push(s.to_string());
+        }
+    }
+    if values.is_empty() {
+        None
+    } else {
+        Some(SqfType::StringEnum(values))
+    }
 }

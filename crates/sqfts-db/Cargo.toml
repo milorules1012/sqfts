@@ -11,5 +11,6 @@ indexmap.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 sqfts-syntax.workspace = true
+float-ord.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true

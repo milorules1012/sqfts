@@ -248,7 +248,23 @@ pub fn type_exemplars(ty: &Type) -> Vec<String> {
             out
         }
         Type::Named(_) => vec![],
+        Type::StringLit(s) => vec![format_string_lit_exemplar(s)],
+        Type::NumberLit(n) => vec![format!("{}", n.0)],
     }
+}
+
+fn format_string_lit_exemplar(s: &str) -> String {
+    let mut out = String::from("\"");
+    for ch in s.chars() {
+        if ch == '"' {
+            out.push('"');
+            out.push('"');
+        } else {
+            out.push(ch);
+        }
+    }
+    out.push('"');
+    out
 }
 
 /// Erase with full runtime-params lowering (needs original source for defaults).

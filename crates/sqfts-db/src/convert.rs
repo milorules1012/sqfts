@@ -1,6 +1,7 @@
 //! Convert arma3-wiki [`Value`] into SQFts [`Type`]s.
 
 use arma3_wiki::model::Value;
+use float_ord::FloatOrd;
 use sqfts_syntax::{Brand, Primitive, Type};
 
 /// Convert an arma3-wiki `Value` into a SQFts type.
@@ -9,10 +10,21 @@ pub fn wiki_value_to_type(value: &Value) -> Type {
     match value {
         Value::Anything | Value::Unknown => Type::any(),
         Value::Nothing => Type::nothing(),
-        Value::Number | Value::NumberEnum(_) | Value::NumberRange(_, _) => {
-            Type::Primitive(Primitive::Number)
-        }
-        Value::String | Value::StringEnum(_) => Type::Primitive(Primitive::String),
+        Value::Number => Type::Primitive(Primitive::Number),
+        Value::NumberEnum(vals) => Type::Union(
+            vals.iter()
+                .map(|v| Type::NumberLit(FloatOrd(v.value as f32)))
+                .collect(),
+        )
+        .normalize(),
+        Value::NumberRange(_, _) => Type::Primitive(Primitive::Number),
+        Value::String => Type::Primitive(Primitive::String),
+        Value::StringEnum(vals) => Type::Union(
+            vals.iter()
+                .map(|v| Type::StringLit(v.value.clone()))
+                .collect(),
+        )
+        .normalize(),
         Value::Boolean => Type::Primitive(Primitive::Boolean),
         Value::ArrayUnknown | Value::ArrayDate | Value::ArrayEmpty | Value::ArrayEdenEntities => {
             Type::Primitive(Primitive::Array)
@@ -105,6 +117,9 @@ pub fn wiki_name_to_type(name: &str) -> Type {
             return Type::Union(parts).normalize();
         }
     }
+    if let Some(ty) = parse_wiki_type_atom(n) {
+        return ty;
+    }
     // "Array of X"
     let lower = n.to_ascii_lowercase();
     if let Some(rest) = lower.strip_prefix("array of ") {
@@ -157,5 +172,95 @@ pub fn wiki_name_to_type(name: &str) -> Type {
         "Path" => Type::Brand(Brand::TreePath),
         "UnitLoadoutArray" => Type::Brand(Brand::UnitLoadout),
         other => Type::Named(other.to_string()),
+    }
+}
+
+fn parse_wiki_type_atom(n: &str) -> Option<Type> {
+    let n = n.trim();
+    if n.len() >= 2 {
+        let bytes = n.as_bytes();
+        let quote = bytes[0];
+        if (quote == b'"' || quote == b'\'') && bytes[bytes.len() - 1] == quote {
+            let inner = &n[1..n.len() - 1];
+            let q = quote as char;
+            let doubled = format!("{q}{q}");
+            return Some(Type::StringLit(inner.replace(&doubled, &q.to_string())));
+        }
+    }
+    if let Ok(v) = n.parse::<f32>() {
+        return Some(Type::NumberLit(FloatOrd(v)));
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wiki_name_parses_literal_unions() {
+        assert_eq!(
+            wiki_name_to_type("\"west\" | \"east\""),
+            Type::Union(vec![
+                Type::StringLit("west".into()),
+                Type::StringLit("east".into()),
+            ])
+        );
+        assert_eq!(
+            wiki_name_to_type("0 | 1 | 6"),
+            Type::Union(vec![
+                Type::NumberLit(FloatOrd(0.0)),
+                Type::NumberLit(FloatOrd(1.0)),
+                Type::NumberLit(FloatOrd(6.0)),
+            ])
+        );
+    }
+
+    #[test]
+    fn wiki_value_maps_string_enum() {
+        use arma3_wiki::model::{StringEnumValue, Value};
+        let ty = wiki_value_to_type(&Value::StringEnum(vec![
+            StringEnumValue {
+                value: "west".into(),
+                desc: None,
+                since: None,
+            },
+            StringEnumValue {
+                value: "east".into(),
+                desc: None,
+                since: None,
+            },
+        ]));
+        assert_eq!(
+            ty,
+            Type::Union(vec![
+                Type::StringLit("west".into()),
+                Type::StringLit("east".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn wiki_value_maps_number_enum() {
+        use arma3_wiki::model::{NumberEnumValue, Value};
+        let ty = wiki_value_to_type(&Value::NumberEnum(vec![
+            NumberEnumValue {
+                value: 0,
+                desc: None,
+                since: None,
+            },
+            NumberEnumValue {
+                value: 1,
+                desc: None,
+                since: None,
+            },
+        ]));
+        assert_eq!(
+            ty,
+            Type::Union(vec![
+                Type::NumberLit(FloatOrd(0.0)),
+                Type::NumberLit(FloatOrd(1.0)),
+            ])
+        );
     }
 }

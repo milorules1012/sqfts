@@ -12,10 +12,6 @@ code(_unit: object) => boolean
 
 For event-handler and `addAction` parameters. Would let the database’s `code | string` unions check their payloads.
 
-### Literal types
-
-String unions (`"west" | "east"`), numeric enums for flag-style params (e.g. `showIn3D` in `addAction`).
-
 ### Richer narrowing
 
 - `typeName` / `isEqualTypeArray` maps

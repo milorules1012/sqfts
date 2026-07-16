@@ -118,6 +118,9 @@ fn is_assignable_inner(from: &Type, to: &Type, flags: &CheckFlags) -> bool {
         // Interfaces / named: assignable to hashMap
         (Type::Named(_), Type::Primitive(Primitive::HashMap)) => true,
         (Type::Primitive(Primitive::HashMap), Type::Named(_)) => false, // needs cast
+        (Type::StringLit(a), Type::StringLit(b)) => a.eq_ignore_ascii_case(b),
+        (Type::StringLit(_), Type::Primitive(Primitive::String)) => true,
+        (Type::NumberLit(_), Type::Primitive(Primitive::Number)) => true,
         _ => false,
     }
 }
@@ -159,4 +162,65 @@ fn brands_assignable(from: Brand, to: Brand) -> bool {
 #[allow(dead_code)]
 pub fn types_overlap(a: &Type, b: &Type, flags: &CheckFlags) -> bool {
     is_assignable(a, b, flags) || is_assignable(b, a, flags)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hemtt_sqf::Scalar;
+    use sqfts_syntax::{Primitive, Type};
+
+    #[test]
+    fn string_lit_assigns_to_string() {
+        let flags = CheckFlags::default();
+        assert!(is_assignable(
+            &Type::StringLit("west".into()),
+            &Type::Primitive(Primitive::String),
+            &flags
+        ));
+        assert!(!is_assignable(
+            &Type::Primitive(Primitive::String),
+            &Type::StringLit("west".into()),
+            &flags
+        ));
+    }
+
+    #[test]
+    fn string_lits_match_case_insensitively() {
+        let flags = CheckFlags::default();
+        assert!(is_assignable(
+            &Type::StringLit("WEST".into()),
+            &Type::StringLit("west".into()),
+            &flags
+        ));
+    }
+
+    #[test]
+    fn number_lit_assigns_to_number() {
+        let flags = CheckFlags::default();
+        assert!(is_assignable(
+            &Type::NumberLit(Scalar(1.0)),
+            &Type::Primitive(Primitive::Number),
+            &flags
+        ));
+    }
+
+    #[test]
+    fn literal_in_union() {
+        let flags = CheckFlags::default();
+        let union = Type::Union(vec![
+            Type::NumberLit(Scalar(0.0)),
+            Type::NumberLit(Scalar(1.0)),
+        ]);
+        assert!(is_assignable(
+            &Type::NumberLit(Scalar(1.0)),
+            &union,
+            &flags
+        ));
+        assert!(!is_assignable(
+            &Type::NumberLit(Scalar(2.0)),
+            &union,
+            &flags
+        ));
+    }
 }

@@ -1,5 +1,6 @@
 //! Surface type model for SQFts (SPEC §1).
 
+use float_ord::FloatOrd;
 use std::fmt;
 
 /// Primitive / branded names from SPEC §1.1 / §1.5.
@@ -212,6 +213,10 @@ pub enum Type {
     Tuple(Vec<(Type, bool)>),
     /// Union `A | B | …`.
     Union(Vec<Type>),
+    /// String literal type (`"west"`).
+    StringLit(String),
+    /// Numeric literal type (`0`, `1.5`).
+    NumberLit(FloatOrd<f32>),
 }
 
 impl Type {
@@ -254,7 +259,7 @@ impl Type {
                         other => flat.push(other),
                     }
                 }
-                flat.dedup();
+                union_dedup(&mut flat);
                 if flat.len() == 1 {
                     flat.pop().unwrap()
                 } else {
@@ -271,6 +276,56 @@ impl Type {
             other => other,
         }
     }
+
+    /// Widen literal types to their parent primitives (for inferred locals).
+    #[must_use]
+    pub fn widened(&self) -> Self {
+        match self {
+            Self::StringLit(_) => Self::Primitive(Primitive::String),
+            Self::NumberLit(_) => Self::Primitive(Primitive::Number),
+            Self::Union(parts) => Self::Union(parts.iter().map(Type::widened).collect()).normalize(),
+            Self::ArrayOf(inner) => Self::ArrayOf(Box::new(inner.widened())),
+            Self::Tuple(elems) => Self::Tuple(
+                elems
+                    .iter()
+                    .map(|(t, opt)| (t.widened(), *opt))
+                    .collect(),
+            ),
+            other => other.clone(),
+        }
+    }
+}
+
+fn union_dedup(parts: &mut Vec<Type>) {
+    let mut deduped = Vec::with_capacity(parts.len());
+    for p in parts.drain(..) {
+        if !deduped
+            .iter()
+            .any(|existing| types_equal_for_dedup(existing, &p))
+        {
+            deduped.push(p);
+        }
+    }
+    *parts = deduped;
+}
+
+fn types_equal_for_dedup(a: &Type, b: &Type) -> bool {
+    match (a, b) {
+        (Type::StringLit(x), Type::StringLit(y)) => x.eq_ignore_ascii_case(y),
+        _ => a == b,
+    }
+}
+
+fn format_string_lit(s: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "\"")?;
+    for ch in s.chars() {
+        if ch == '"' {
+            write!(f, "\"\"")?;
+        } else {
+            write!(f, "{ch}")?;
+        }
+    }
+    write!(f, "\"")
 }
 
 impl fmt::Display for Type {
@@ -302,6 +357,42 @@ impl fmt::Display for Type {
                 }
                 Ok(())
             }
+            Self::StringLit(s) => format_string_lit(s, f),
+            Self::NumberLit(n) => write!(f, "{}", n.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_dedups_string_lits_case_insensitively() {
+        let ty = Type::Union(vec![
+            Type::StringLit("west".into()),
+            Type::StringLit("WEST".into()),
+            Type::StringLit("east".into()),
+        ])
+        .normalize();
+        assert_eq!(
+            ty,
+            Type::Union(vec![
+                Type::StringLit("west".into()),
+                Type::StringLit("east".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn widened_maps_literals_to_primitives() {
+        assert_eq!(
+            Type::StringLit("a".into()).widened(),
+            Type::Primitive(Primitive::String)
+        );
+        assert_eq!(
+            Type::NumberLit(FloatOrd(2.0)).widened(),
+            Type::Primitive(Primitive::Number)
+        );
     }
 }

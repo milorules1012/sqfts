@@ -131,6 +131,16 @@ fn type_tag(t: &SqfType) -> String {
             .map(type_tag)
             .collect::<Vec<_>>()
             .join(" or "),
+        SqfType::NumberEnum(values) => values
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(" | "),
+        SqfType::StringEnum(values) => values
+            .iter()
+            .map(|s| format!("\"{s}\""))
+            .collect::<Vec<_>>()
+            .join(" | "),
         other => other.wiki_name(),
     }
 }
@@ -208,5 +218,13 @@ mod tests {
         assert!(yaml.contains("type: Boolean"));
         assert!(yaml.contains("type: Object"));
         assert!(yaml.contains("kind: unary"));
+    }
+
+    #[test]
+    fn emits_literal_enum_unions() {
+        let yaml = type_tag(&SqfType::NumberEnum(vec![0, 1, 2]));
+        assert_eq!(yaml, "0 | 1 | 2");
+        let yaml = type_tag(&SqfType::StringEnum(vec!["west".into(), "east".into()]));
+        assert_eq!(yaml, "\"west\" | \"east\"");
     }
 }

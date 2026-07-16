@@ -1,6 +1,7 @@
 //! Recursive-descent parser for SQFts type expressions (SPEC §6).
 
 use crate::typ::{Brand, Primitive, Type};
+use float_ord::FloatOrd;
 use thiserror::Error;
 
 /// Error parsing a type expression.
@@ -112,6 +113,8 @@ impl<'a> Parser<'a> {
                 Ok(inner)
             }
             Some('[') => self.parse_tuple(),
+            Some('"' | '\'') => self.parse_string_lit(),
+            Some('-') | Some('0'..='9') => self.parse_number_lit(),
             Some(c) if is_ident_start(c) => {
                 let name = self.parse_ident()?;
                 if let Some(p) = Primitive::from_name(&name) {
@@ -124,6 +127,55 @@ impl<'a> Parser<'a> {
             }
             _ => Err(self.err("expected type")),
         }
+    }
+
+    fn parse_string_lit(&mut self) -> Result<Type, TypeParseError> {
+        let quote = self.bump().unwrap();
+        let mut content = String::new();
+        while let Some(c) = self.peek() {
+            if c == quote {
+                let mut chars = self.remaining().chars();
+                chars.next();
+                if chars.next() == Some(quote) {
+                    content.push(quote);
+                    self.bump();
+                    self.bump();
+                    continue;
+                }
+                self.bump();
+                return Ok(Type::StringLit(content));
+            }
+            content.push(c);
+            self.bump();
+        }
+        Err(self.err("unterminated string literal"))
+    }
+
+    fn parse_number_lit(&mut self) -> Result<Type, TypeParseError> {
+        let start = self.pos;
+        if self.peek() == Some('-') {
+            self.bump();
+            if !matches!(self.peek(), Some('0'..='9')) {
+                return Err(self.err("expected digits after '-'"));
+            }
+        }
+        while matches!(self.peek(), Some('0'..='9')) {
+            self.bump();
+        }
+        if self.peek() == Some('.') {
+            self.bump();
+            if !matches!(self.peek(), Some('0'..='9')) {
+                return Err(self.err("expected digits after '.'"));
+            }
+            while matches!(self.peek(), Some('0'..='9')) {
+                self.bump();
+            }
+        }
+        let text = &self.src[start..self.pos];
+        let value: f32 = text
+            .parse()
+            .map_err(|_| self.err(format!("invalid number literal `{text}`")))?;
+        Ok(Type::NumberLit(FloatOrd(value)))
     }
 
     fn parse_tuple(&mut self) -> Result<Type, TypeParseError> {
@@ -223,6 +275,52 @@ mod tests {
         assert_eq!(
             parse_type("positionATL").unwrap().0,
             Type::Brand(Brand::PositionATL)
+        );
+    }
+
+    #[test]
+    fn string_literal_unions() {
+        assert_eq!(
+            parse_type("\"west\" | \"east\"").unwrap().0,
+            Type::Union(vec![
+                Type::StringLit("west".into()),
+                Type::StringLit("east".into()),
+            ])
+        );
+        assert_eq!(
+            parse_type("'a'").unwrap().0,
+            Type::StringLit("a".into())
+        );
+        assert_eq!(
+            parse_type("\"say \"\"hi\"\"\"").unwrap().0,
+            Type::StringLit("say \"hi\"".into())
+        );
+    }
+
+    #[test]
+    fn number_literal_unions() {
+        assert_eq!(
+            parse_type("0 | 1 | 2").unwrap().0,
+            Type::Union(vec![
+                Type::NumberLit(FloatOrd(0.0)),
+                Type::NumberLit(FloatOrd(1.0)),
+                Type::NumberLit(FloatOrd(2.0)),
+            ])
+        );
+        assert_eq!(
+            parse_type("-1").unwrap().0,
+            Type::NumberLit(FloatOrd(-1.0))
+        );
+    }
+
+    #[test]
+    fn literals_in_tuples() {
+        assert_eq!(
+            parse_type("[\"west\", number]").unwrap().0,
+            Type::Tuple(vec![
+                (Type::StringLit("west".into()), false),
+                (Type::Primitive(Primitive::Number), false),
+            ])
         );
     }
 }

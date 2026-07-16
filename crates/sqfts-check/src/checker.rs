@@ -380,12 +380,31 @@ impl CheckCtx<'_> {
                             span.clone(),
                         ));
                     }
-                    self.symbols.define_local(name, ty);
+                    self.symbols.define_local(name, ty.widened());
                 }
             }
             Statement::AssignGlobal(name, expr, span) => {
+                // HEMTT classifies bare `_x = …` as AssignGlobal even when `_x` is a
+                // local; still enforce the annotated / inferred local type.
                 let ty = self.type_of(expr);
-                if let Some((expected, _)) = self.symbols.globals.get(name).cloned() {
+                if let Some(expected) = self.typed_locals.get(name).cloned() {
+                    if !is_assignable(&ty, &expected, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{name}` expected `{expected}`, got `{ty}`"),
+                            span.clone(),
+                        ));
+                    }
+                    self.symbols.define_local(name, expected);
+                } else if let Some(expected) = self.symbols.lookup_local(name).cloned() {
+                    if !is_assignable(&ty, &expected, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{name}` expected `{expected}`, got `{ty}`"),
+                            span.clone(),
+                        ));
+                    }
+                } else if let Some((expected, _)) = self.symbols.globals.get(name).cloned() {
                     if !is_assignable(&ty, &expected, &self.flags) {
                         self.diagnostics.push(Diagnostic::error(
                             StsCode::AssignMismatch,
@@ -403,8 +422,8 @@ impl CheckCtx<'_> {
 
     fn type_of(&mut self, expr: &Expression) -> Type {
         match expr {
-            Expression::Number(_, _) => Type::Primitive(Primitive::Number),
-            Expression::String(_, _, _) => Type::Primitive(Primitive::String),
+            Expression::Number(n, _) => Type::NumberLit(*n),
+            Expression::String(s, _, _) => Type::StringLit(s.to_string()),
             Expression::Boolean(_, _) => Type::Primitive(Primitive::Boolean),
             Expression::Array(elems, _) => {
                 let tys: Vec<Type> = elems.iter().map(|e| self.type_of(e)).collect();
@@ -796,5 +815,85 @@ project_serviceFee = true;
         assert_eq!(diag.message, "Use of an invalid token");
         assert!(!diag.message.contains('\u{1b}'));
         assert_eq!(diag.span, Some(0..1));
+    }
+
+    #[test]
+    fn bare_reassignment_checks_typed_local() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        // Bare `_testVar = …` is AssignGlobal in HEMTT, but must still respect
+        // the annotated local type from `private _testVar: number = …`.
+        let src = r#"private _testVar: number = 3;
+_testVar = "test";
+"#;
+        let result = check_source(src, "reassign.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004 for string→number local reassignment, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn bare_reassignment_checks_inferred_local() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _n = 3;
+_n = "test";
+"#;
+        let result = check_source(src, "reassign_inferred.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004 for string→number inferred local reassignment, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn literal_widening_allows_reassignment() {
+        let db = CommandDb::default();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let src = r#"private _side = "west";
+_side = "east";
+"#;
+        let result = check_source(src, "literal_widen.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::AssignMismatch),
+            "unexpected assign errors: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn annotated_literal_union_enforced() {
+        let db = CommandDb::default();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let src = r#"private _mode: "west" | "east" = "west";
+_mode = "north";
+"#;
+        let result = check_source(src, "literal_union.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected assign mismatch for invalid literal, got {:?}",
+            result.diagnostics
+        );
     }
 }

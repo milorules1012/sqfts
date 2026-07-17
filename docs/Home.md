@@ -37,6 +37,7 @@ private _owner = _vehicle getVariable ["project_owner", objNull];
 | Page | Description |
 |---|---|
 | [Getting Started](Getting-Started) | Install the toolchain and check your first project |
+| [Configuring Your Project](Configuring-Your-Project.md) | End-to-end setup for an existing Arma project |
 | [Basic Concepts](Basic-Concepts) | Superset, erasure, gradual typing, file extensions |
 | [Everyday Types](Everyday-Types) | Primitives, `any`, `nothing`, `nil` |
 | [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands) | `T[]`, tuples, positions, waypoints, colors |

@@ -97,7 +97,7 @@ check_plain_sqf = false
 
 ## Documentation
 
-Check out our [Wiki page](https://github.com/milorules1012/sqfts/wiki)! If you are wiring SQFts into an existing Arma project, start with [Configuring Your Project for SQFts](Configuring-Your-Project.md).
+Check out our [Wiki page](https://github.com/milorules1012/sqfts/wiki)! If you are wiring SQFts into an existing Arma project, start with [Configuring Your Project for SQFts](docs/Configuring-Your-Project.md).
 
 ## License
 

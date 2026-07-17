@@ -4,6 +4,7 @@
 
 ## Start here
 - [Getting Started](Getting-Started)
+- [Configuring Your Project](Configuring-Your-Project.md)
 - [Basic Concepts](Basic-Concepts)
 - [Everyday Types](Everyday-Types)
 - [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands)

@@ -2,7 +2,7 @@
 
 This guide shows how to wire SQFts into an existing Arma 3 mission / addon tree. It uses a typical multi-addon layout (mission + server addon + optional HC) so you can copy the same shape for your own repo.
 
-For language details see [Getting-Started.md](Getting-Started.md), [Configuration.md](Configuration.md), and [Adoption-Guide.md](Adoption-Guide.md).
+For language details see [Getting Started](Getting-Started), [Configuration](Configuration), and [Adoption Guide](Adoption-Guide).
 
 ## What you end up with
 
@@ -43,9 +43,9 @@ Binaries:
 
 Put `sqfts` on your `PATH`, or invoke it via `cargo run -p sqfts-cli -- …`.
 
-Engine commands load automatically from [arma3-wiki](Engine-Command-Database.md); no separate extract step is required.
+Engine commands load automatically from [arma3-wiki](Engine-Command-Database); no separate extract step is required.
 
-Install the editor extension from `editors/vscode` (VSIX or symlink). See [Editor-Support.md](Editor-Support.md).
+Install the editor extension from `editors/vscode` (VSIX or symlink). See [Editor Support](Editor-Support).
 
 ## 2. Add `sqfts.toml` at the mission root
 
@@ -118,7 +118,7 @@ If `file = "addon_name\…"` paths include a PBO prefix that is not on disk unde
 strip_prefixes = ["addon_name/", "addon_name/"]
 ```
 
-Then re-run with `--project .` so declgen loads that section. Details: [Declgen.md](Declgen.md).
+Then re-run with `--project .` so declgen loads that section. Details: [Declgen](Declgen).
 
 Tighten high-traffic declarations by hand over time:
 
@@ -184,7 +184,7 @@ sqfts build .          # erase all sources into out_dir
 1. **Declarations only** — generate `.d.sqfts`, keep `check_plain_sqf = false`, optionally add a small demo under `.sqfts/`.
 2. **Pilot files** — convert a few hot-path scripts to `.sqfts` with `build_on_save` so packaging stays unchanged.
 3. **Widen checking** — set `check_plain_sqf = true` and tighten declarations until call-site noise is useful.
-4. **Raise strictness** — see [Strictness-Flags.md](Strictness-Flags.md).
+4. **Raise strictness** — see [Strictness Flags](Strictness-Flags).
 
 ## Checklist
 
@@ -199,8 +199,8 @@ sqfts build .          # erase all sources into out_dir
 
 ## Related docs
 
-- [Configuration.md](Configuration.md) — full `sqfts.toml` field reference
-- [Editor-Support.md](Editor-Support.md) — extension features and install
-- [Adoption-Guide.md](Adoption-Guide.md) — incremental typing strategy
-- [Declgen.md](Declgen.md) — declaration generation options
-- [CLI-Reference.md](CLI-Reference.md) — `check` / `build` / `declgen`
+- [Configuration](Configuration) — full `sqfts.toml` field reference
+- [Editor Support](Editor-Support) — extension features and install
+- [Adoption Guide](Adoption-Guide) — incremental typing strategy
+- [Declgen](Declgen) — declaration generation options
+- [CLI Reference](CLI-Reference) — `check` / `build` / `declgen`

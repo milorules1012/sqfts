@@ -4,7 +4,7 @@
 
 ## Start here
 - [Getting Started](Getting-Started)
-- [Configuring Your Project](Configuring-Your-Project.md)
+- [Configuring Your Project](Configuring-Your-Project)
 - [Basic Concepts](Basic-Concepts)
 - [Everyday Types](Everyday-Types)
 - [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands)
@@ -34,7 +34,7 @@
 ## Reference
 - [Grammar](Grammar)
 - [Architecture](Architecture)
-- [Design History](design-history/README)
+- [Design History](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/README.md)
 - [Adoption Guide](Adoption-Guide)
 - [Future Work](Future-Work)
 - [FAQ](FAQ)

@@ -1,0 +1,56 @@
+name: Wiki sync
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Stage handbook pages
+        run: |
+          mkdir -p staged-wiki
+          for f in docs/*.md; do
+            base=$(basename "$f")
+            if [ "$base" = "Wiki-Upload.md" ]; then
+              continue
+            fi
+            cp "$f" "staged-wiki/$base"
+          done
+
+      - name: Clone wiki and publish
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+          RELEASE_REF: ${{ github.event.release.tag_name || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WIKI_TOKEN:-}" ]; then
+            echo "WIKI_TOKEN secret is not set" >&2
+            exit 1
+          fi
+
+          wiki_url="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          git clone "$wiki_url" wiki-repo
+
+          cp staged-wiki/*.md wiki-repo/
+
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to publish"
+            exit 0
+          fi
+
+          git commit -m "Sync handbook from ${RELEASE_REF}"
+          git push

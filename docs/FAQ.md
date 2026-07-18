@@ -34,7 +34,7 @@ Checking sees post-preprocess code, but **erasure** runs on unpreprocessed sourc
 
 ## Where is the normative spec?
 
-The [language specification](design-history/language-specification.md) in the design-history archive. This handbook is the wiki-oriented guide; the specification wins on conflicts.
+The [language specification](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/language-specification.md) in the design-history archive. This handbook is the wiki-oriented guide; the specification wins on conflicts.
 
 ## What license is the toolchain?
 

@@ -3,14 +3,15 @@ name = "sqfts-db"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Engine-command type database (arma3-wiki + Phase 1 overlay)"
+description = "Engine-command type database (arma3-wiki)"
 
 [dependencies]
 arma3-wiki.workspace = true
 indexmap.workspace = true
-serde.workspace = true
-serde_yaml.workspace = true
 sqfts-syntax.workspace = true
 float-ord.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+
+[dev-dependencies]
+serde_json = "1"

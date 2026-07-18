@@ -1,6 +1,6 @@
 # Engine Command Database
 
-SQFts treats the Arma 3 engine command set as a typed standard library. Types come from Phase 1 extraction, verified against [arma3-wiki](https://github.com/acemod/arma3-wiki).
+SQFts treats the Arma 3 engine command set as a typed standard library. Types come from [arma3-wiki](https://github.com/acemod/arma3-wiki) — the same data source HEMTT uses.
 
 ## What is typed
 
@@ -14,44 +14,23 @@ _veh setDamage 1;                    // nothing
 
 User / library functions (`TAG_fnc_*`, `BIS_fnc_*`, …) are **not** in this database — they get types from [`.d.sqfts`](Declaration-Files).
 
-## Building the database
+## How the database is loaded
 
-```bash
-cargo run -p comref-extract --release -- extract \
-  --comref "../COMREF-md" \
-  --out ./out --diff-wiki
-```
+`sqfts-db` loads commands the same way HEMTT does:
 
-Output lives under `out/commands/*.yml` (one page per command). Cross-check stats against arma3-wiki’s `dist` branch are printed when `--diff-wiki` is set.
+1. Try `Wiki::load_git(false)` — refreshes the [arma3-wiki](https://github.com/acemod/arma3-wiki) `dist` branch into the OS app-data cache (at most every ~6 hours unless forced).
+2. On failure, fall back to `Wiki::load_dist()` — the snapshot embedded in the `arma3-wiki` crate at build time.
 
-### Upstream patches
-
-```bash
-cargo run -p comref-extract -- emit-wiki-patches --out ./out
-```
-
-Prepares patch material for arma3-wiki contributions where COMREF and wiki disagree.
-
-## How the checker loads it
-
-By default the toolchain looks for `out/commands` relative to the working tree. Override with:
-
-```bash
-# PowerShell
-$env:SQFTS_COMMANDS_DIR = "C:\path\to\out\commands"
-```
-
-Without a database, engine call checking cannot resolve overloads (unknown commands surface as `STS2401` / degraded typing).
+Uses the same `arma3-wiki` **0.4.x** API as HEMTT (`Syntax::params()`). No local YAML extract or `SQFTS_COMMANDS_DIR` is required.
 
 ## Overload matching
 
 See [Type Checking](Type-Checking). Summary: first matching overload wins; with `any` arguments, returns may union; with no match and no `any`, `STS2003`.
 
-## Data sources
+## Data source
 
 | Source | Role |
 |---|---|
-| COMREF markdown corpus | Scraped Bohemia community wiki export — input to `comref-extract` |
-| arma3-wiki | Canonical typed DB also consumed by HEMTT; verification target |
+| [arma3-wiki](https://github.com/acemod/arma3-wiki) (`dist` + Rust crate) | Canonical typed command DB (also consumed by HEMTT) |
 
-License note: the toolchain is GPL-2.0 (HEMTT-derived). Respect upstream wiki licensing when redistributing extracted YAML.
+License note: the toolchain is GPL-2.0 (HEMTT-derived). The `arma3-wiki` crate is MIT; respect Bohemia wiki content licensing when redistributing command text.

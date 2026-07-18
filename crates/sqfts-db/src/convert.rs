@@ -11,29 +11,14 @@ pub fn wiki_value_to_type(value: &Value) -> Type {
         Value::Anything | Value::Unknown => Type::any(),
         Value::Nothing => Type::nothing(),
         Value::Number => Type::Primitive(Primitive::Number),
-        Value::NumberEnum(vals) => Type::Union(
-            vals.iter()
-                .map(|v| Type::NumberLit(FloatOrd(v.value as f32)))
-                .collect(),
-        )
-        .normalize(),
-        Value::NumberRange(_, _) => Type::Primitive(Primitive::Number),
         Value::String => Type::Primitive(Primitive::String),
-        Value::StringEnum(vals) => Type::Union(
-            vals.iter()
-                .map(|v| Type::StringLit(v.value.clone()))
-                .collect(),
-        )
-        .normalize(),
         Value::Boolean => Type::Primitive(Primitive::Boolean),
-        Value::ArrayUnknown | Value::ArrayDate | Value::ArrayEmpty | Value::ArrayEdenEntities => {
-            Type::Primitive(Primitive::Array)
-        }
+        Value::ArrayUnknown | Value::ArrayDate => Type::Primitive(Primitive::Array),
         Value::ArrayUnsized { typ, .. } => Type::ArrayOf(Box::new(wiki_value_to_type(typ))),
         Value::ArraySized { types, .. } => Type::Tuple(
             types
                 .iter()
-                .map(|e| (wiki_value_to_type(&e.typ), false))
+                .map(|e| (wiki_value_to_type(&e.value), false))
                 .collect(),
         ),
         Value::ArrayColor | Value::ArrayColorRgb | Value::ArrayColorRgba => {
@@ -61,7 +46,6 @@ pub fn wiki_value_to_type(value: &Value) -> Type {
         Value::SwitchType => Type::Primitive(Primitive::SwitchType),
         Value::Task => Type::Primitive(Primitive::Task),
         Value::TeamMember => Type::Primitive(Primitive::TeamMember),
-        Value::Path => Type::Brand(Brand::TreePath),
         Value::TurretPath => Type::Brand(Brand::TurretPath),
         Value::UnitLoadoutArray => Type::Brand(Brand::UnitLoadout),
         Value::Position => Type::Brand(Brand::Position),
@@ -73,18 +57,21 @@ pub fn wiki_value_to_type(value: &Value) -> Type {
         Value::Position3dAGL => Type::Brand(Brand::PositionAGL),
         Value::Position3dAGLS => Type::Brand(Brand::PositionAGLS),
         Value::Position3dRelative => Type::Brand(Brand::PositionRelative),
-        Value::Vector | Value::Vector3d => Type::Brand(Brand::Vector3D),
-        Value::Vector2d => Type::Brand(Brand::Vector2D),
+        Value::Vector3d => Type::Brand(Brand::Vector3D),
         Value::Waypoint => Type::Brand(Brand::Waypoint),
         Value::WhileType => Type::Primitive(Primitive::WhileType),
         Value::WithType => Type::Primitive(Primitive::WithType),
-        Value::OneOf(parts) => {
-            Type::Union(parts.iter().map(|v| wiki_value_to_type(&v.typ)).collect()).normalize()
-        }
+        Value::OneOf(parts) => Type::Union(
+            parts
+                .iter()
+                .map(|(v, _)| wiki_value_to_type(v))
+                .collect(),
+        )
+        .normalize(),
     }
 }
 
-/// Convert a PascalCase / wiki-style type name (Phase 1 YAML) into a SQFts type.
+/// Convert a PascalCase / wiki-style type name into a SQFts type.
 #[must_use]
 pub fn wiki_name_to_type(name: &str) -> Type {
     let n = name.trim();
@@ -94,7 +81,6 @@ pub fn wiki_name_to_type(name: &str) -> Type {
     if let Some(inner) = n.strip_prefix("ArrayOf") {
         return Type::ArrayOf(Box::new(wiki_name_to_type(inner)));
     }
-    // Phase 1 prose unions: "String or Code", "String or StructuredText"
     if n.contains(" or ") {
         let parts: Vec<Type> = n
             .split(" or ")
@@ -116,7 +102,6 @@ pub fn wiki_name_to_type(name: &str) -> Type {
     if let Some(ty) = parse_wiki_type_atom(n) {
         return ty;
     }
-    // "Array of X"
     let lower = n.to_ascii_lowercase();
     if let Some(rest) = lower.strip_prefix("array of ") {
         let start = n.len() - rest.len();
@@ -213,50 +198,15 @@ mod tests {
     }
 
     #[test]
-    fn wiki_value_maps_string_enum() {
-        use arma3_wiki::model::{StringEnumValue, Value};
-        let ty = wiki_value_to_type(&Value::StringEnum(vec![
-            StringEnumValue {
-                value: "west".into(),
-                desc: None,
-                since: None,
-            },
-            StringEnumValue {
-                value: "east".into(),
-                desc: None,
-                since: None,
-            },
-        ]));
+    fn wiki_value_maps_primitives() {
         assert_eq!(
-            ty,
-            Type::Union(vec![
-                Type::StringLit("west".into()),
-                Type::StringLit("east".into()),
-            ])
+            wiki_value_to_type(&Value::Number),
+            Type::Primitive(Primitive::Number)
         );
-    }
-
-    #[test]
-    fn wiki_value_maps_number_enum() {
-        use arma3_wiki::model::{NumberEnumValue, Value};
-        let ty = wiki_value_to_type(&Value::NumberEnum(vec![
-            NumberEnumValue {
-                value: 0,
-                desc: None,
-                since: None,
-            },
-            NumberEnumValue {
-                value: 1,
-                desc: None,
-                since: None,
-            },
-        ]));
         assert_eq!(
-            ty,
-            Type::Union(vec![
-                Type::NumberLit(FloatOrd(0.0)),
-                Type::NumberLit(FloatOrd(1.0)),
-            ])
+            wiki_value_to_type(&Value::Object),
+            Type::Primitive(Primitive::Object)
         );
+        assert_eq!(wiki_value_to_type(&Value::Nothing), Type::nothing());
     }
 }

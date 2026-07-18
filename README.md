@@ -85,10 +85,10 @@ check_plain_sqf = false
 
 ## Workspace
 
-- `crates/comref-extract` — engine-command documentation extractor
 - `crates/hemtt-sqf` — vendored HEMTT SQF parser
 - `crates/sqfts-syntax` — annotation scanner, type parser, and eraser
-- `crates/sqfts-db` — engine-command type database
+- `crates/sqfts-db` — engine-command type database (arma3-wiki)
+
 - `crates/sqfts-check` — type checker and diagnostics
 - `crates/sqfts-project` — configuration, discovery, project sessions, and declaration generation
 - `crates/sqfts-cli` — command-line interface

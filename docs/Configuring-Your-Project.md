@@ -43,7 +43,7 @@ Binaries:
 
 Put `sqfts` on your `PATH`, or invoke it via `cargo run -p sqfts-cli -- …`.
 
-You also need the Phase 1 engine-command database under `out/commands/` (or set `SQFTS_COMMANDS_DIR`). See [Engine-Command-Database.md](Engine-Command-Database.md).
+Engine commands load automatically from [arma3-wiki](Engine-Command-Database.md); no separate extract step is required.
 
 Install the editor extension from `editors/vscode` (VSIX or symlink). See [Editor-Support.md](Editor-Support.md).
 
@@ -189,7 +189,7 @@ sqfts build .          # erase all sources into out_dir
 ## Checklist
 
 - [ ] Built `sqfts` CLI and `sqfts-language-server`
-- [ ] Engine command DB available (`out/commands` or `SQFTS_COMMANDS_DIR`)
+- [ ] Toolchain builds successfully (`cargo build -p sqfts-cli` — pulls arma3-wiki)
 - [ ] VS Code / Cursor extension installed
 - [ ] `sqfts.toml` at mission root with your source roots
 - [ ] `.sqfts/*.d.sqfts` from `declgen` (mission + server ± HC)

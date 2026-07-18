@@ -68,7 +68,7 @@ private _owner = _vehicle getVariable ["project_owner", objNull];
 | [Diagnostics](Diagnostics) | Stable `STSxxxx` codes |
 | [Editor Support](Editor-Support) | VS Code / Cursor / LSP |
 | [Declgen](Declgen) | Generate skeletons from `Functions.h` |
-| [Engine Command Database](Engine-Command-Database) | Phase 1 COMREF / arma3-wiki types |
+| [Engine Command Database](Engine-Command-Database) | arma3-wiki engine command types |
 
 ### Reference & guides
 

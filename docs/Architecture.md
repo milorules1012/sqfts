@@ -14,7 +14,7 @@ High-level map of the SQFts workspace for contributors and curious users.
     │                                              │
     └─► span map ◄──────────────────────────── diagnostics
                                                    │
-    sqfts-db (out/commands YAML)  ──►  sqfts-check ◄── .d.sqfts (sqfts-project)
+    sqfts-db (arma3-wiki)  ──►  sqfts-check ◄── .d.sqfts (sqfts-project)
                                                    │
                                                    ▼
                                           STS diagnostics / build output
@@ -28,10 +28,9 @@ High-level map of the SQFts workspace for contributors and curious users.
 
 | Crate | Role |
 |---|---|
-| `comref-extract` | COMREF → typed command YAML; wiki diff / patches |
 | `hemtt-sqf` | Vendored HEMTT SQF parser (parser feature) |
 | `sqfts-syntax` | Annotation scanner, type parser, eraser |
-| `sqfts-db` | Engine-command type database loader |
+| `sqfts-db` | Engine-command type database (arma3-wiki) |
 | `sqfts-check` | Type checker, assignability, diagnostics |
 | `sqfts-project` | `sqfts.toml`, discovery, project session, declgen |
 | `sqfts-cli` | `sqfts` binary (`check` / `build` / `declgen`) |
@@ -65,7 +64,7 @@ Language rules are defined in the archived [language specification](design-histo
 
 | Phase | Status | Deliverable |
 |---|---|---|
-| 1 | Done | Engine command DB (`comref-extract`) |
+| 1 | Done | Engine command DB (arma3-wiki via `sqfts-db`) |
 | 2 | Done | [Language design](design-history/language-specification.md) |
 | 3 | Done | Compiler toolchain (`check` / `build`) |
-| 4 | Done | LSP, editor extension, `declgen`, wiki patches |
+| 4 | Done | LSP, editor extension, `declgen` |

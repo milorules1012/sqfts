@@ -43,4 +43,4 @@ _mode = "north";       // error
 
 ## Engine database
 
-Wiki `StringEnum` / `NumberEnum` values (e.g. `showIn3D` on `addAction`) map to literal unions in the command database. Phase 1 YAML may spell them as `"a" | "b"` or `0 | 1 | 2`.
+Wiki `StringEnum` / `NumberEnum` values (e.g. `showIn3D` on `addAction`) map to literal unions in the command database when the wiki data provides them.

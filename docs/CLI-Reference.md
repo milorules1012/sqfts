@@ -67,10 +67,8 @@ Full details: [Declgen](Declgen).
 
 | Tool | Crate | Purpose |
 |---|---|---|
-| `comref-extract` | `crates/comref-extract` | Build / diff the engine command YAML DB |
 | `sqfts-language-server` | `crates/sqfts-lsp` | LSP for editors |
 
 ```bash
-cargo run -p comref-extract --release -- extract --comref ../COMREF-md --out ./out --diff-wiki
 cargo run -p sqfts-lsp --release
 ```

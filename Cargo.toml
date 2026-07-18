@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/comref-extract",
     "crates/hemtt-sqf",
     "crates/sqfts-syntax",
     "crates/sqfts-db",
@@ -20,7 +19,6 @@ repository = "https://github.com/example/sqfts"
 
 [workspace.dependencies]
 # Local crates
-comref-extract = { path = "crates/comref-extract" }
 hemtt-sqf = { path = "crates/hemtt-sqf", default-features = false, features = ["parser"] }
 sqfts-syntax = { path = "crates/sqfts-syntax" }
 sqfts-db = { path = "crates/sqfts-db" }
@@ -35,7 +33,7 @@ hemtt-preprocessor = { git = "https://github.com/BrettMayson/HEMTT", rev = "90b5
 
 # Shared third-party
 anyhow = "1"
-arma3-wiki = "0.5.5"
+arma3-wiki = "0.4.5"
 clap = { version = "4", features = ["derive"] }
 codespan-reporting = { version = "0.13", features = ["serialization"] }
 indexmap = { version = "2", features = ["serde"] }

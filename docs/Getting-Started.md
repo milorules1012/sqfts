@@ -5,15 +5,9 @@ This page gets you from a clone of SQFts to a type-checked project.
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable toolchain)
-- A Phase 1 engine-command database under `out/commands/` (YAML), or set `SQFTS_COMMANDS_DIR`
+- Network access on first build (the `arma3-wiki` crate embeds command data at compile time)
 
-If you do not already have `out/commands`, extract it from a COMREF markdown corpus:
-
-```bash
-cargo run -p comref-extract --release -- extract \
-  --comref "../COMREF-md" \
-  --out ./out --diff-wiki
-```
+Engine commands load automatically from [arma3-wiki](https://github.com/acemod/arma3-wiki) (same crate/path as HEMTT) at runtime — no separate extract step. See [Engine Command Database](Engine-Command-Database).
 
 ## Build the CLI
 

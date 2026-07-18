@@ -29,6 +29,17 @@ Then either:
 
 Set `sqfts.serverPath` in settings if the binary is not bundled under `server/`.
 
+## Regenerating engine-command highlighting
+
+The TextMate grammar lists engine command names. Regenerate from arma3-wiki:
+
+```bash
+# from editors/vscode
+node scripts/gen-grammar-commands.js
+```
+
+That runs `cargo run -p sqfts-db --example dump_command_names` and writes `syntaxes/engine-commands.tmLanguage.json`.
+
 ## Erase is not automatic
 
 The extension does **not** emit `.sqf` on save. Use the CLI:

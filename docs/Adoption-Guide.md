@@ -50,9 +50,9 @@ strip_prefixes = ["addon_name/"]
 
 See [Declgen](Declgen).
 
-### 3. Ensure the engine database is available
+### 3. Engine database
 
-`out/commands` from Phase 1, or `SQFTS_COMMANDS_DIR`. See [Engine Command Database](Engine-Command-Database).
+No setup step — `sqfts-db` loads [arma3-wiki](Engine-Command-Database) automatically (same source as HEMTT).
 
 ### 4. Check
 

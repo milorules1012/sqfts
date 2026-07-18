@@ -52,8 +52,4 @@ sqfts build . --out ./dist       # overrides out_dir
 
 ## Environment
 
-| Variable | Role |
-|---|---|
-| `SQFTS_COMMANDS_DIR` | Override path to Phase 1 `out/commands` YAML database |
-
-See [Engine Command Database](Engine-Command-Database).
+No environment variables are required for the engine-command database. Commands load from [arma3-wiki](Engine-Command-Database) (git cache with embedded fallback).

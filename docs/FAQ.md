@@ -16,6 +16,10 @@ No. Prefer [`.d.sqfts` declarations](Declaration-Files) and `check_plain_sqf` fi
 
 Engine **commands** are in the [command database](Engine-Command-Database). Scripted functions (`BIS_fnc_*`, mission `*_fnc_*`) need [declarations](Declaring-Functions-and-Globals) — generate skeletons with [declgen](Declgen) or write them by hand.
 
+## Where do engine command types come from?
+
+From [arma3-wiki](https://github.com/acemod/arma3-wiki), loaded the same way HEMTT does (git refresh of the `dist` data, with an embedded snapshot as fallback). There is no separate COMREF extract step.
+
 ## Why is `code` opaque?
 
 v1 does not yet track `_this` / return types of code blocks. Parameterized `code(…)` types are [future work](Future-Work). Code literals are still type-checked internally as scopes.

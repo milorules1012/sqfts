@@ -7,7 +7,7 @@ This page gets you from a clone of SQFts to a type-checked project.
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Network access on first build (the `arma3-wiki` crate embeds command data at compile time)
 
-Engine commands load automatically from [arma3-wiki](https://github.com/acemod/arma3-wiki) (crate `0.4.5`, same as HEMTT) at runtime — no separate extract step. See [Engine Command Database](Engine-Command-Database).
+Engine commands load automatically from [arma3-wiki](https://github.com/acemod/arma3-wiki) (same crate/path as HEMTT) at runtime — no separate extract step. See [Engine Command Database](Engine-Command-Database).
 
 ## Build the CLI
 

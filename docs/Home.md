@@ -80,4 +80,4 @@ private _owner = _vehicle getVariable ["project_owner", objNull];
 | [Future Work](Future-Work) | Non-normative roadmap |
 | [FAQ](FAQ) | Common questions |
 
-The normative [language specification](design-history/language-specification.md) is preserved with the project’s design history. This handbook is the human-oriented guide; if a handbook page and the specification disagree, **the specification wins**.
+The normative [language specification](design-history/language-specification.md) is preserved with the project’s design history. This handbook is the human-oriented guide; if a handbook page and the specification disagree, **the specification wins** — except where design history notes that engine-command loading now comes solely from [arma3-wiki](Engine-Command-Database).

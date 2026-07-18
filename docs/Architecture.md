@@ -58,7 +58,7 @@ cargo test -p sqfts-cli corpus_identity -- --nocapture
 
 ## Normative spec
 
-Language rules are defined in the archived [language specification](design-history/language-specification.md). This handbook paraphrases them for wiki use; if the handbook and specification disagree, **the specification wins**.
+Language rules are defined in the archived [language specification](design-history/language-specification.md). This handbook paraphrases them for wiki use; if a handbook page and the specification disagree, **the specification wins** — except for engine-command **data sourcing**: the live toolchain uses [arma3-wiki](Engine-Command-Database) only (see [design history](design-history/README)).
 
 ## Phases (status)
 

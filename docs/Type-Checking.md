@@ -16,7 +16,7 @@ A variable’s type is fixed for its scope. Shadowing with a new `private` creat
 
 ## Engine calls
 
-Every command use is resolved against the Phase 1 database:
+Every command use is resolved against the [arma3-wiki](Engine-Command-Database) engine database:
 
 1. Overloads are tried in order.
 2. The first whose parameter types accept the (possibly-`any`) arguments wins and supplies the return type.

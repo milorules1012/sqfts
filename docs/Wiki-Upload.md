@@ -1,6 +1,16 @@
 # Uploading to the GitHub Wiki
 
-These markdown files are written as **individual wiki pages**. Upload them manually to your repository’s Wiki (or sync with a wiki git remote).
+These markdown files are written as **individual wiki pages**. On each published GitHub Release, [`.github/workflows/wiki-sync.yml`](../.github/workflows/wiki-sync.yml) mirrors the handbook into the repository wiki.
+
+## Automatic sync
+
+1. Publish a GitHub Release (or re-run the workflow manually: **Actions** → **Wiki sync** → **Run workflow**).
+2. The workflow copies top-level `docs/*.md` pages (except this file) into `https://github.com/<owner>/<repo>.wiki.git` and pushes.
+
+### Prerequisites
+
+- The repository **Wiki** feature is enabled, and at least one wiki page already exists (that initializes the `.wiki.git` remote).
+- Repository secret **`WIKI_TOKEN`**: a fine-grained personal access token with **Contents: Read and write** on this repository (or a classic token with the `repo` scope). The default `GITHUB_TOKEN` cannot reliably push to the wiki git remote.
 
 ## Page map
 
@@ -14,28 +24,13 @@ These markdown files are written as **individual wiki pages**. Upload them manua
 
 GitHub wiki links of the form `[text](Page-Name)` resolve to `/wiki/Page-Name`. Filenames use Title-Case-With-Dashes to match those slugs.
 
-## Suggested upload steps
+## Do not upload
 
-1. Open the repository on GitHub → **Wiki** → Create the first page if needed.
-2. For each `docs/*.md` (except this file):
-   - Create a page whose title matches the filename without `.md` (e.g. `Getting-Started`).
-   - Paste the markdown body.
-3. Upload `Home.md` as the wiki **Home** page.
-4. Upload `_Sidebar.md` as page `_Sidebar` for left navigation.
-
-## Do not need to upload
-
-| File | Reason |
+| Path | Reason |
 |---|---|
 | `Wiki-Upload.md` (this file) | Maintainer instructions only |
-
-## After upload
-
-Cross-links between handbook pages should work without path prefixes. The normative specification is stored at `docs/design-history/language-specification.md`; on the wiki, either:
-
-- Change specification links to absolute GitHub blob URLs after upload, or
-- Upload the specification and design-history index as additional wiki pages.
+| `docs/design-history/` | Stays in the repository; handbook links use absolute GitHub blob URLs |
 
 ## Keeping docs in sync
 
-The archived language specification remains normative. When language rules change, update the affected handbook pages and specification together.
+Edit handbook pages under `docs/`, then publish a release (or run **Wiki sync** manually). The archived language specification under `docs/design-history/` remains normative; when language rules change, update the affected handbook pages and specification together.

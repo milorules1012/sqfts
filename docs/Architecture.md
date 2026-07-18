@@ -58,13 +58,13 @@ cargo test -p sqfts-cli corpus_identity -- --nocapture
 
 ## Normative spec
 
-Language rules are defined in the archived [language specification](design-history/language-specification.md). This handbook paraphrases them for wiki use; if a handbook page and the specification disagree, **the specification wins** — except for engine-command **data sourcing**: the live toolchain uses [arma3-wiki](Engine-Command-Database) only (see [design history](design-history/README)).
+Language rules are defined in the archived [language specification](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/language-specification.md). This handbook paraphrases them for wiki use; if a handbook page and the specification disagree, **the specification wins** — except for engine-command **data sourcing**: the live toolchain uses [arma3-wiki](Engine-Command-Database) only (see [design history](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/README.md)).
 
 ## Phases (status)
 
 | Phase | Status | Deliverable |
 |---|---|---|
 | 1 | Done | Engine command DB (arma3-wiki via `sqfts-db`) |
-| 2 | Done | [Language design](design-history/language-specification.md) |
+| 2 | Done | [Language design](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/language-specification.md) |
 | 3 | Done | Compiler toolchain (`check` / `build`) |
 | 4 | Done | LSP, editor extension, `declgen` |

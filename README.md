@@ -69,7 +69,7 @@ Projects can use an `sqfts.toml` file:
 sources = ["."]
 declarations = ["."]
 out_dir = "out/sqf"
-emit_runtime_params = false
+emit_runtime_params = true
 build_on_save = true
 
 [flags]

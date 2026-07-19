@@ -49,7 +49,7 @@ params [
 
 ## Runtime params lowering
 
-With `emit_runtime_params = true` in [`sqfts.toml`](Configuration), typed entries additionally emit native guard arrays:
+Enabled by default (`emit_runtime_params = true` in [`sqfts.toml`](Configuration)). Typed entries additionally emit native guard arrays:
 
 ```sqf
 params [

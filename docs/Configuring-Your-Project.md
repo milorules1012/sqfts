@@ -85,10 +85,10 @@ check_plain_sqf = false
 | `declarations` | Usually a single `.sqfts/` folder holding `*.d.sqfts`. |
 | `include_paths` | Extra directories for `#include "…"`. Relative `#include "..\..\macro.h"` resolves from the file’s path under the project root without this; use `include_paths` for include-layer names with a leading `\`, e.g. `#include "\shared.h"`. |
 | `out_dir = "."` | Writes `path/to/fn_foo.sqf` next to `path/to/fn_foo.sqfts`. Prefer a separate folder (e.g. `out/sqf`) only if your pack step copies from that output. |
-| `build_on_save` | Editor-only convenience so packaging keeps seeing plain SQF without a manual `sqfts build`. |
+| `build_on_save` | On by default. Editor erases on save so packaging keeps seeing plain SQF without a manual `sqfts build`. |
 | `check_plain_sqf = false` | Quieter first pass while you grow declarations. Turn on when you want call-site checking in existing `.sqf`. |
 
-Missing `sqfts.toml` → defaults (`sources = ["."]`, `out_dir = "out/sqf"`, `build_on_save = false`).
+Missing `sqfts.toml` → defaults (`sources = ["."]`, `out_dir = "out/sqf"`, `emit_runtime_params = true`, `build_on_save = true`).
 
 ## 3. Generate declaration skeletons
 

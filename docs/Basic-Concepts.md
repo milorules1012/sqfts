@@ -19,7 +19,7 @@ Annotations exist only for the checker. After checking, the compiler **erases** 
 | `type` / `interface` / `declare` | Entire statement deleted |
 | `.d.sqfts` | Never emits output |
 
-The only opt-in exception is [`emit_runtime_params`](Erasure#optional-runtime-params-lowering): typed `params` can also emit native SQF guard arrays for runtime defense.
+By default [`emit_runtime_params`](Erasure#runtime-params-lowering) is on: typed `params` also emit native SQF guard arrays for runtime defense. Set it to `false` to strip types only.
 
 See [Erasure](Erasure) for the full rules (byte identity, locality, determinism).
 

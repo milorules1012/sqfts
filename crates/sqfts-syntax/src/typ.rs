@@ -198,6 +198,17 @@ impl fmt::Display for Brand {
     }
 }
 
+/// Parameter in a parameterized `code(…) : R` type (documents the `_this` tuple).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CodeParam {
+    /// Parameter name (documentation only; may include leading `_`).
+    pub name: String,
+    /// Type of this `_this` slot.
+    pub ty: Type,
+    /// Optional (`name?:`).
+    pub optional: bool,
+}
+
 /// A SQFts type expression.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -211,6 +222,13 @@ pub enum Type {
     ArrayOf(Box<Type>),
     /// Fixed-shape tuple; each element may be optional (`T?`).
     Tuple(Vec<(Type, bool)>),
+    /// Parameterized code `code(…) : R`. Bare `code` remains [`Primitive::Code`].
+    Code {
+        /// Params describing the `_this` tuple (names are documentation).
+        params: Vec<CodeParam>,
+        /// Return type of the block.
+        ret: Box<Type>,
+    },
     /// Union `A | B | …`.
     Union(Vec<Type>),
     /// String literal type (`"west"`).
@@ -273,6 +291,17 @@ impl Type {
                     .map(|(t, opt)| (t.normalize(), opt))
                     .collect(),
             ),
+            Self::Code { params, ret } => Self::Code {
+                params: params
+                    .into_iter()
+                    .map(|p| CodeParam {
+                        name: p.name,
+                        ty: p.ty.normalize(),
+                        optional: p.optional,
+                    })
+                    .collect(),
+                ret: Box::new(ret.normalize()),
+            },
             other => other,
         }
     }
@@ -290,8 +319,48 @@ impl Type {
             Self::Tuple(elems) => {
                 Self::Tuple(elems.iter().map(|(t, opt)| (t.widened(), *opt)).collect())
             }
+            Self::Code { params, ret } => Self::Code {
+                params: params
+                    .iter()
+                    .map(|p| CodeParam {
+                        name: p.name.clone(),
+                        ty: p.ty.widened(),
+                        optional: p.optional,
+                    })
+                    .collect(),
+                ret: Box::new(ret.widened()),
+            },
             other => other.clone(),
         }
+    }
+
+    /// Type of `_this` implied by a parameterized code param list.
+    ///
+    /// Returns `None` for an empty param list (nular — leave `_this` unbound / `any`).
+    /// A single required non-array/tuple param uses the bare value convention; otherwise
+    /// params pack into a tuple (optional slots marked).
+    #[must_use]
+    pub fn this_type_from_params(params: &[CodeParam]) -> Option<Type> {
+        if params.is_empty() {
+            return None;
+        }
+        if params.len() == 1 {
+            let p = &params[0];
+            if !p.optional
+                && !matches!(
+                    p.ty,
+                    Type::Primitive(Primitive::Array) | Type::Tuple(_) | Type::ArrayOf(_)
+                )
+            {
+                return Some(p.ty.clone());
+            }
+        }
+        Some(Type::Tuple(
+            params
+                .iter()
+                .map(|p| (p.ty.clone(), p.optional))
+                .collect(),
+        ))
     }
 }
 
@@ -346,6 +415,20 @@ impl fmt::Display for Type {
                     }
                 }
                 write!(f, "]")
+            }
+            Self::Code { params, ret } => {
+                write!(f, "code(")?;
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", p.name)?;
+                    if p.optional {
+                        write!(f, "?")?;
+                    }
+                    write!(f, ": {}", p.ty)?;
+                }
+                write!(f, "): {ret}")
             }
             Self::Union(parts) => {
                 for (i, p) in parts.iter().enumerate() {

@@ -20,9 +20,9 @@ Engine **commands** are in the [command database](Engine-Command-Database). Scri
 
 From [arma3-wiki](https://github.com/acemod/arma3-wiki), loaded the same way HEMTT does (git refresh of the `dist` data, with an embedded snapshot as fallback). There is no separate COMREF extract step.
 
-## Why is `code` opaque?
+## How does parameterized `code` work?
 
-v1 does not yet track `_this` / return types of code blocks. Parameterized `code(…)` types are listed under [Missing Features](Missing-Features). Code literals are still type-checked internally as scopes.
+Use `code(unit: object): boolean` (and similar) to describe `_this` and the return type. Param names document the `_this` tuple; the checker binds only `_this` when checking a `{ … }` literal against that expected type. Bare `code` remains gradual (assignable both ways). The return uses `:` like [`declare function`](Declaring-Functions-and-Globals). See [Everyday Types](Everyday-Types).
 
 ## Why did `positionATL` reject my `positionASL`?
 

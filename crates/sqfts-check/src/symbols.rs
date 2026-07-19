@@ -95,6 +95,17 @@ impl SymbolTable {
                     .map(|(t, o)| (self.resolve_type(t), *o))
                     .collect(),
             ),
+            Type::Code { params, ret } => Type::Code {
+                params: params
+                    .iter()
+                    .map(|p| sqfts_syntax::CodeParam {
+                        name: p.name.clone(),
+                        ty: self.resolve_type(&p.ty),
+                        optional: p.optional,
+                    })
+                    .collect(),
+                ret: Box::new(self.resolve_type(ret)),
+            },
             Type::Union(parts) => Type::Union(parts.iter().map(|p| self.resolve_type(p)).collect()),
             other => other.clone(),
         }

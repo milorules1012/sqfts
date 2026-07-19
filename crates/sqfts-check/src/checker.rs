@@ -628,10 +628,15 @@ impl CheckCtx<'_> {
     }
 
     fn check_statement(&mut self, stmt: &Statement) {
+        let _ = self.check_statement_value(stmt);
+    }
+
+    fn check_statement_value(&mut self, stmt: &Statement) -> Type {
         match stmt {
             Statement::AssignLocal(name, expr, span) => {
-                let ty = self.type_of(expr);
-                if let Some(expected) = self.typed_locals.get(name).cloned() {
+                let expected = self.typed_locals.get(name).cloned();
+                let ty = self.type_of_expected(expr, expected.as_ref());
+                if let Some(expected) = expected {
                     if !is_assignable(&ty, &expected, &self.flags) {
                         self.diagnostics.push(Diagnostic::error(
                             StsCode::AssignMismatch,
@@ -650,11 +655,18 @@ impl CheckCtx<'_> {
                     }
                     self.symbols.define_local(name, ty.widened());
                 }
+                ty
             }
             Statement::AssignGlobal(name, expr, span) => {
                 // HEMTT classifies bare `_x = …` as AssignGlobal even when `_x` is a
                 // local; still enforce the annotated / inferred local type.
-                let ty = self.type_of(expr);
+                let expected = self
+                    .typed_locals
+                    .get(name)
+                    .cloned()
+                    .or_else(|| self.symbols.lookup_local(name).cloned())
+                    .or_else(|| self.symbols.globals.get(name).map(|(t, _)| t.clone()));
+                let ty = self.type_of_expected(expr, expected.as_ref());
                 if let Some(expected) = self.typed_locals.get(name).cloned() {
                     if !is_assignable(&ty, &expected, &self.flags) {
                         self.diagnostics.push(Diagnostic::error(
@@ -681,14 +693,17 @@ impl CheckCtx<'_> {
                         ));
                     }
                 }
+                ty
             }
-            Statement::Expression(expr, _) => {
-                let _ = self.type_of(expr);
-            }
+            Statement::Expression(expr, _) => self.type_of(expr),
         }
     }
 
     fn type_of(&mut self, expr: &Expression) -> Type {
+        self.type_of_expected(expr, None)
+    }
+
+    fn type_of_expected(&mut self, expr: &Expression, expected: Option<&Type>) -> Type {
         match expr {
             Expression::Number(n, _) => Type::NumberLit(*n),
             Expression::String(s, _, _) => Type::StringLit(s.to_string()),
@@ -708,17 +723,14 @@ impl CheckCtx<'_> {
                     Type::Tuple(tys.into_iter().map(|t| (t, false)).collect())
                 }
             }
-            Expression::Code(stmts) => {
-                self.check_statements(stmts);
-                Type::Primitive(Primitive::Code)
-            }
+            Expression::Code(stmts) => self.type_code_literal(stmts, expected),
             Expression::Variable(name, _) => self.symbols.lookup_var(name),
             Expression::NularCommand(cmd, span) => {
                 self.resolve_command(cmd.as_str(), CallKind::Nular, &[], span)
             }
             Expression::UnaryCommand(cmd, arg, span) => {
-                let arg_ty = self.type_of(arg);
-                // Special: isNil / isEqualType handled in binary/unary for narrowing later
+                let arg_expected = self.expected_param_ty(cmd.as_str(), CallKind::Unary, 0);
+                let arg_ty = self.type_of_expected(arg, arg_expected.as_ref());
                 self.resolve_command(cmd.as_str(), CallKind::Unary, &[arg_ty], span)
             }
             Expression::BinaryCommand(cmd, left, right, span) => {
@@ -728,6 +740,70 @@ impl CheckCtx<'_> {
                 self.type_of(&Expression::Array(elems.clone(), span.clone()))
             }
         }
+    }
+
+    /// Type a `{ … }` literal, optionally against a parameterized `code(…) : R`.
+    fn type_code_literal(&mut self, stmts: &Statements, expected: Option<&Type>) -> Type {
+        let param_code = expected.and_then(extract_parameterized_code);
+
+        self.symbols.push_scope();
+        for (name, ty) in self.typed_locals.clone() {
+            self.symbols.define_local(&name, ty);
+        }
+
+        if let Some(ref code_ty) = param_code {
+            if let Type::Code { params, ret } = code_ty {
+                if let Some(this_ty) = Type::this_type_from_params(params) {
+                    self.symbols.define_local("_this", this_ty);
+                }
+                let result_ty = self.check_statements_value(stmts);
+                if !is_assignable(&result_ty, ret, &self.flags) {
+                    self.diagnostics.push(Diagnostic::error(
+                        StsCode::ReturnMismatch,
+                        format!("code block returns `{result_ty}`, expected `{ret}`"),
+                        stmts.span().clone(),
+                    ));
+                }
+                self.symbols.pop_scope();
+                return code_ty.clone();
+            }
+        }
+
+        for stmt in stmts.content() {
+            self.check_statement(stmt);
+        }
+        self.symbols.pop_scope();
+        Type::Primitive(Primitive::Code)
+    }
+
+    /// Last-statement value type of a block (already inside a scope).
+    fn check_statements_value(&mut self, stmts: &Statements) -> Type {
+        let content = stmts.content();
+        if content.is_empty() {
+            return Type::nothing();
+        }
+        for stmt in &content[..content.len() - 1] {
+            self.check_statement(stmt);
+        }
+        self.check_statement_value(content.last().unwrap())
+    }
+
+    /// If all overloads agree on a parameterized `code` for this arg slot, return it.
+    fn expected_param_ty(&self, name: &str, kind: CallKind, arg_index: usize) -> Option<Type> {
+        let overloads = self.db.overloads_kind(name, kind);
+        let mut found: Option<Type> = None;
+        for ov in &overloads {
+            if let Some(p) = ov.params.get(arg_index) {
+                if let Some(code) = extract_parameterized_code(&p.ty) {
+                    match &found {
+                        None => found = Some(code),
+                        Some(prev) if prev != &code => return None,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        found
     }
 
     fn type_binary(
@@ -771,8 +847,10 @@ impl CheckCtx<'_> {
             }
         }
 
-        let left_ty = self.type_of(left);
-        let right_ty = self.type_of(right);
+        let left_expected = self.expected_param_ty(name, CallKind::Binary, 0);
+        let right_expected = self.expected_param_ty(name, CallKind::Binary, 1);
+        let left_ty = self.type_of_expected(left, left_expected.as_ref());
+        let right_ty = self.type_of_expected(right, right_expected.as_ref());
 
         // HashMap get/set with interfaces
         if name.eq_ignore_ascii_case("get") || name.eq_ignore_ascii_case("set") {
@@ -805,7 +883,7 @@ impl CheckCtx<'_> {
                         if let Some(Expression::String(key, key_span, _)) = elems.first() {
                             if let Some(m) = members.iter().find(|m| m.name == key.as_ref()) {
                                 if let Some(val) = elems.get(1) {
-                                    let vt = self.type_of(val);
+                                    let vt = self.type_of_expected(val, Some(&m.ty));
                                     if !is_assignable(&vt, &m.ty, &self.flags) {
                                         self.diagnostics.push(Diagnostic::error(
                                             StsCode::AssignMismatch,
@@ -1038,6 +1116,23 @@ impl CheckCtx<'_> {
         args.iter()
             .zip(params.iter())
             .all(|(a, p)| soft(&p.ty) || is_assignable(a, &p.ty, flags))
+    }
+}
+
+/// Extract a unique parameterized `code(…) : R` from an expected type (or union).
+fn extract_parameterized_code(expected: &Type) -> Option<Type> {
+    match expected {
+        Type::Code { .. } => Some(expected.clone()),
+        Type::Union(parts) => {
+            let mut iter = parts.iter().filter(|p| matches!(p, Type::Code { .. }));
+            let first = iter.next()?.clone();
+            if iter.next().is_some() {
+                None
+            } else {
+                Some(first)
+            }
+        }
+        _ => None,
     }
 }
 
@@ -1331,6 +1426,112 @@ _x = "nope";
                 .all(|d| d.code != StsCode::SyntaxError),
             "relative include should resolve: {:?}",
             result.diagnostics
+        );
+    }
+
+    #[test]
+    fn typed_code_literal_binds_this_and_checks_return() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let ok = check_source(
+            r#"private _pred: code(unit: object): boolean = { alive _this };"#,
+            "typed_code_ok.sqfts",
+            &db,
+            &decls,
+            &flags,
+        )
+        .unwrap();
+        assert!(
+            ok.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            ok.diagnostics
+        );
+
+        let bad_ret = check_source(
+            r#"private _pred: code(unit: object): boolean = { hint "x" };"#,
+            "typed_code_ret.sqfts",
+            &db,
+            &decls,
+            &flags,
+        )
+        .unwrap();
+        assert!(
+            bad_ret
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005, got {:?}",
+            bad_ret.diagnostics
+        );
+    }
+
+    #[test]
+    fn differently_typed_code_locals_not_assignable() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _pred: code(unit: object): boolean = { alive _this };
+private _onKilled: code(): nothing = _pred;
+"#;
+        let result = check_source(src, "typed_code_assign.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn opaque_code_still_accepts_any_block() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _pred: code = { true };
+private _onKilled: code = { hint str _this };
+_pred = _onKilled;
+"#;
+        let result = check_source(src, "opaque_code.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn code_string_union_accepts_block_and_string() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        // `addAction` / similar expect code|string for some params; `spawn` takes code.
+        // Use a local annotated as the union to verify assignability paths.
+        let src = r#"private _handler: code | string = { hint "x" };
+_handler = "TAG_fnc_handler";
+"#;
+        let result = check_source(src, "code_string_union.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+
+        let typed = r#"private _handler: code | string = { hint "x" };
+private _typed: code(unit: object): nothing = { hint str _this };
+_handler = _typed;
+"#;
+        let result2 = check_source(typed, "code_string_typed.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result2.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result2.diagnostics
         );
     }
 }

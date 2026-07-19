@@ -244,6 +244,7 @@ pub fn type_exemplars(ty: &Type) -> Vec<String> {
             vec![s.to_string()]
         }
         Type::Brand(_) | Type::Tuple(_) | Type::ArrayOf(_) => vec!["[]".into()],
+        Type::Code { .. } => vec!["{}".into()],
         Type::Union(parts) => {
             let mut out = Vec::new();
             for p in parts {
@@ -407,6 +408,16 @@ private _result: string;
         assert!(!erased.text.contains(": object"));
         assert!(!erased.text.contains(": number"));
         assert!(!erased.text.contains(": string"));
+    }
+
+    #[test]
+    fn parameterized_code_type_annot_erases_cleanly() {
+        let src = "private _a: code(unit: object): boolean = { alive _this };\n";
+        let erased = erase(src, &EraseOptions::default()).unwrap();
+        assert_eq!(erased.text, "private _a = { alive _this };\n");
+        assert!(!erased.text.contains("code"));
+        assert!(!erased.text.contains("=>"));
+        assert!(!erased.text.contains(": boolean"));
     }
 
     #[test]

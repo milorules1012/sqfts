@@ -12,5 +12,5 @@ pub use erase::{
     SpanMap,
 };
 pub use scan::{scan, scan_with, Annotation, AnnotationKind, EraseHint, FnParam, ScanError, ScanResult};
-pub use typ::{Brand, Primitive, Type};
+pub use typ::{Brand, CodeParam, Primitive, Type};
 pub use type_parser::{parse_type, TypeParseError};

@@ -15,7 +15,10 @@ CastExpr       ::= Expr "as" Type                                  // lowest pre
 Type           ::= UnionType
 UnionType      ::= ArrayType ( "|" ArrayType )*
 ArrayType      ::= AtomType ( "[" "]" )*
-AtomType       ::= PrimitiveName | Ident | StringLit | NumberLit | TupleType | "(" Type ")"
+AtomType       ::= CodeType | PrimitiveName | Ident | StringLit | NumberLit | TupleType | "(" Type ")"
+CodeType       ::= "code" "(" CodeParamList? ")" ":" Type
+CodeParamList  ::= CodeParam ( "," CodeParam )*
+CodeParam      ::= Ident "?"? ":" Type
 TupleType      ::= "[" Type "?"? ( "," Type "?"? )* "]"
 ```
 

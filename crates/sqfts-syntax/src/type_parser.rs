@@ -1,6 +1,6 @@
 //! Recursive-descent parser for SQFts type expressions (SPEC §6).
 
-use crate::typ::{Brand, Primitive, Type};
+use crate::typ::{Brand, CodeParam, Primitive, Type};
 use float_ord::FloatOrd;
 use thiserror::Error;
 
@@ -114,6 +114,15 @@ impl<'a> Parser<'a> {
             Some('-') | Some('0'..='9') => self.parse_number_lit(),
             Some(c) if is_ident_start(c) => {
                 let name = self.parse_ident()?;
+                if name == "code" {
+                    let saved = self.pos;
+                    self.skip_ws();
+                    if self.peek() == Some('(') {
+                        return self.parse_code_type();
+                    }
+                    self.pos = saved;
+                    return Ok(Type::Primitive(Primitive::Code));
+                }
                 if let Some(p) = Primitive::from_name(&name) {
                     Ok(Type::Primitive(p))
                 } else if let Some(b) = Brand::from_name(&name) {
@@ -124,6 +133,62 @@ impl<'a> Parser<'a> {
             }
             _ => Err(self.err("expected type")),
         }
+    }
+
+    /// `code(…) : Type` — caller has already consumed `code` and peeked `(`.
+    fn parse_code_type(&mut self) -> Result<Type, TypeParseError> {
+        assert_eq!(self.bump(), Some('('));
+        self.skip_ws();
+        let mut params = Vec::new();
+        if self.peek() != Some(')') {
+            loop {
+                self.skip_ws();
+                let pname = self.parse_ident()?;
+                self.skip_ws();
+                let optional = if self.peek() == Some('?') {
+                    self.bump();
+                    true
+                } else {
+                    false
+                };
+                self.skip_ws();
+                if self.bump() != Some(':') {
+                    return Err(self.err("expected ':' in code param"));
+                }
+                self.skip_ws();
+                let ty = self.parse_union()?;
+                params.push(CodeParam {
+                    name: pname,
+                    ty,
+                    optional,
+                });
+                self.skip_ws();
+                match self.peek() {
+                    Some(',') => {
+                        self.bump();
+                        continue;
+                    }
+                    Some(')') => break,
+                    _ => return Err(self.err("expected ',' or ')' in code params")),
+                }
+            }
+        }
+        self.skip_ws();
+        if self.bump() != Some(')') {
+            return Err(self.err("expected ')' after code params"));
+        }
+        self.skip_ws();
+        // Return type uses `:` (same as `declare function …: R`), not `=>`,
+        // so raw annotations never introduce SQF-illegal `=>` tokens.
+        if self.bump() != Some(':') {
+            return Err(self.err("expected ':' after code params"));
+        }
+        self.skip_ws();
+        let ret = self.parse_union()?;
+        Ok(Type::Code {
+            params,
+            ret: Box::new(ret),
+        })
     }
 
     fn parse_string_lit(&mut self) -> Result<Type, TypeParseError> {
@@ -312,6 +377,64 @@ mod tests {
                 (Type::StringLit("west".into()), false),
                 (Type::Primitive(Primitive::Number), false),
             ])
+        );
+    }
+
+    #[test]
+    fn parameterized_code() {
+        use crate::typ::CodeParam;
+        assert_eq!(
+            parse_type("code(unit: object): boolean").unwrap().0,
+            Type::Code {
+                params: vec![CodeParam {
+                    name: "unit".into(),
+                    ty: Type::Primitive(Primitive::Object),
+                    optional: false,
+                }],
+                ret: Box::new(Type::Primitive(Primitive::Boolean)),
+            }
+        );
+        assert_eq!(
+            parse_type("code(): nothing").unwrap().0,
+            Type::Code {
+                params: vec![],
+                ret: Box::new(Type::Primitive(Primitive::Nothing)),
+            }
+        );
+        assert_eq!(
+            parse_type("code(a: number, b?: string): number | string")
+                .unwrap()
+                .0,
+            Type::Code {
+                params: vec![
+                    CodeParam {
+                        name: "a".into(),
+                        ty: Type::Primitive(Primitive::Number),
+                        optional: false,
+                    },
+                    CodeParam {
+                        name: "b".into(),
+                        ty: Type::Primitive(Primitive::String),
+                        optional: true,
+                    },
+                ],
+                ret: Box::new(Type::Union(vec![
+                    Type::Primitive(Primitive::Number),
+                    Type::Primitive(Primitive::String),
+                ])),
+            }
+        );
+        assert_eq!(
+            parse_type("(code(): number)[]").unwrap().0,
+            Type::ArrayOf(Box::new(Type::Code {
+                params: vec![],
+                ret: Box::new(Type::Primitive(Primitive::Number)),
+            }))
+        );
+        // Bare `code` without `(` stays opaque
+        assert_eq!(
+            parse_type("code").unwrap().0,
+            Type::Primitive(Primitive::Code)
         );
     }
 }

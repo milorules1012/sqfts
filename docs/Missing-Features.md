@@ -24,20 +24,7 @@ For the short roadmap pointer, see [Future Work](Future-Work).
 
 ## Highlighted holes
 
-These three are the most visible day-to-day gaps relative to typed arrays and TypeScript callables.
-
-### Opaque `code` (planned · P0 · B-TypedCode)
-
-`code` is opaque in v1: the checker does not track what a block expects in `_this` or returns. See [Everyday Types](Everyday-Types).
-
-```sqfts
-// Today: both are just `code` — no mismatch
-private _pred: code = { true };
-private _onKilled: code = { hint str _this };
-
-// Target: parameterized forms
-// private _pred: code(unit: object) => boolean = { alive _this };
-```
+These are the most visible day-to-day gaps relative to typed arrays.
 
 ### Array mutation ignores element types (soundness hole · P0 · B-ArraySoundness)
 
@@ -67,7 +54,7 @@ player pushBack 1;             // should error; currently accepted
 |---|---|---|
 | **B-ArraySoundness** | Reject non-array collections for `forEach`, `apply`, `select`, `pushBack`, `set`, `append`, …; check mutation values against `T` for `T[]`; tighten soft-match for expected `array` | Same root cause in gradual overload matching |
 | **B-ArrayGenerics** | Preserve / map element types through `select` / `apply` / `findIf`-style commands; fix `T[] select code` returning `T` instead of `T[]` | Needs sound collection typing first |
-| **B-TypedCode** | `code(_this: T, …) => R` syntax + assignability; bind `_this` / params for literals from context; check `code \| string` DB payloads | Unlocks handlers and callable richness |
+| **B-TypedCode** | `code(_this: T, …): R` syntax + assignability; bind `_this` for literals from context; `code \| string` unions | **Done** — see [Everyday Types](Everyday-Types) |
 | **B-EventHandlers** | `addEventHandler ["Killed", …]` (and similar) payload tables from wiki event data | Depends on typed `code` |
 | **B-Narrowing** | Implement documented `isNil` / `isEqualType`; add `isNull` / `typeName` / `isEqualTypeArray`; enforce [`strictNil`](Strictness-Flags) (`STS2202`); `never` + `switch` exhaustiveness; discriminated tuples | One control-flow story; docs already promise v1 narrowing |
 | **B-HashMapTyping** | `hashMap<K, V>`, interface `extends`, index signatures, `keyof` | Completes HashMap typing beyond [Interfaces](Interfaces) |
@@ -80,11 +67,12 @@ player pushBack 1;             // should error; currently accepted
 
 1. **B-ArraySoundness**
 2. **B-Narrowing**
-3. **B-TypedCode**
-4. **B-ArrayGenerics**
-5. **B-EventHandlers**
-6. **B-HashMapTyping**
-7. **B-CallableRichness** → **B-DeclPackaging** / **B-IdeDepth** / **B-ParityPolish** as needed
+3. **B-ArrayGenerics**
+4. **B-EventHandlers**
+5. **B-HashMapTyping**
+6. **B-CallableRichness** → **B-DeclPackaging** / **B-IdeDepth** / **B-ParityPolish** as needed
+
+(**B-TypedCode** shipped — [Everyday Types](Everyday-Types).)
 
 ---
 
@@ -105,8 +93,8 @@ player pushBack 1;             // should error; currently accepted
 
 | Feature | TS analogue | Status | Priority | Bundle |
 |---|---|---|---|---|
-| Parameterized `code(…) => R` | `(…args) => R` | planned / missing | P0 | B-TypedCode |
-| `_this` / param typing from call context | `this` parameter | partial (literals checked as scopes only) | P0 | B-TypedCode |
+| Parameterized `code(…): R` | `(…args) => R` | **present** | — | B-TypedCode |
+| `_this` typing from expected `code(…): R` | `this` parameter | **present** (literals; names document `_this` only) | — | B-TypedCode |
 | Event-handler name → payload typing | overload / mapped handlers | planned | P0 | B-EventHandlers |
 | User `declare function` overloads | overload signatures | missing (engine DB has overloads) | P2 | B-CallableRichness |
 | Type predicates / asserts | `x is T` / `asserts` | missing | P2 | B-Narrowing |
@@ -204,7 +192,7 @@ TypeScript features that do not map cleanly onto SQF / SQFts. Do not prioritize 
 ## Related
 
 - [Future Work](Future-Work) — short roadmap pointer
-- [Everyday Types](Everyday-Types) — opaque `code`
+- [Everyday Types](Everyday-Types) — parameterized `code`
 - [Arrays, Tuples, and Brands](Arrays-Tuples-and-Brands) — `T[]` surface
 - [Unions and Narrowing](Unions-and-Narrowing) — promised vs richer narrowing
 - [Interfaces](Interfaces) — HashMap typing today

@@ -12,7 +12,7 @@ Surface type names are **lowerCamelCase** keywords. They map onto Arma’s value
 | `string` | String |
 | `boolean` | Boolean |
 | `array` | Untyped array; shorthand for `any[]` |
-| `code` | Code block (opaque in v1 — see below) |
+| `code` | Code block — bare form is gradual; see parameterized `code` below |
 | `object` | Object |
 | `group` | Group |
 | `side` | Side |
@@ -55,11 +55,26 @@ type hashMapKey = number | string | boolean | side | config | group
 
 With the [`strictNil`](Strictness-Flags) flag, `T | nothing` must be narrowed (e.g. via `isNil`) or defaulted before use where `T` is expected. Without the flag, `nothing` in a union is only reported when a value is *known* to be nil.
 
-## `code` (v1)
+## `code`
 
-`code` is **opaque** in v1: the checker does not track what a code block expects in `_this` or returns. Parameterized forms such as `code(unit: object) => boolean` are tracked under [Missing Features](Missing-Features) (bundle **B-TypedCode**).
+Bare `code` is the gradual form: assignable to and from any parameterized `code(…) : R`.
 
-Code *literals* `{ … }` are still checked internally like any other scope.
+### Parameterized form
+
+```sqfts
+private _pred: code(unit: object): boolean = { alive _this };
+private _onKilled: code(): nothing = { hint "killed" };
+```
+
+- The param list describes the `_this` tuple (same convention as [`declare function`](Declaring-Functions-and-Globals)): names are documentation only.
+- Return type uses `:` (same as `declare function …: R`).
+- One required non-array/tuple param → `_this` has that bare type; multiple (or optional/array) params → `_this` is a tuple.
+- Empty params (nular) leave `_this` unbound (`any`).
+- When a `{ … }` literal is checked against a parameterized expected type, the checker binds `_this` and checks the block’s last expression against the return type (`STS2005` on mismatch).
+- Assignability between parameterized forms: **contravariant** params, **covariant** return.
+- Engine `code | string` unions accept opaque `code`, parameterized `code`, and `string`.
+
+Event-handler name → payload tables (e.g. `addEventHandler ["Killed", …]`) are separate ([Missing Features](Missing-Features) **B-EventHandlers**).
 
 ## Examples
 
@@ -70,6 +85,7 @@ private _alive: boolean = alive player;
 private _veh: object = vehicle player;
 private _items: array = [];           // any[]
 private _script: scriptHandle = [] spawn {};
+private _pred: code(unit: object): boolean = { alive _this };
 ```
 
 ## Related

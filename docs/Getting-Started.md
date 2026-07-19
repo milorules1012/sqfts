@@ -29,7 +29,8 @@ Create a folder with:
 sources = ["."]
 declarations = ["."]
 out_dir = "out/sqf"
-emit_runtime_params = false
+emit_runtime_params = true
+build_on_save = true
 
 [flags]
 no_implicit_any = false

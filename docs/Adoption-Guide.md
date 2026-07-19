@@ -21,7 +21,8 @@ SQFts is designed for incremental adoption:
 sources = ["mission.MyMap/core/actions"]
 declarations = [".sqfts"]
 out_dir = "out/sqf"
-emit_runtime_params = false
+emit_runtime_params = true
+build_on_save = true
 
 [flags]
 check_plain_sqf = true

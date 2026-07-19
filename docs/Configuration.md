@@ -11,7 +11,8 @@ declarations = ["."]
 # Omit to auto-add ./include when that directory exists.
 # include_paths = ["include"]
 out_dir = "out/sqf"
-emit_runtime_params = false
+emit_runtime_params = true
+build_on_save = true
 
 [flags]
 no_implicit_any = false
@@ -33,7 +34,8 @@ check_plain_sqf = false
 | `declarations` | `[]` | Paths to `.d.sqfts` files or directories containing them |
 | `include_paths` | auto | Extra HEMTT include-layer directories. Omitted → add `./include` if present; `[]` → none. Headers there use `#include "\name.h"`. Relative `#include "..\..\macro.h"` resolves from the source file under the project root. |
 | `out_dir` | `out/sqf` | Output directory for `sqfts build` |
-| `emit_runtime_params` | `false` | Emit native `params` guard arrays from typed entries ([Erasure](Erasure)) |
+| `emit_runtime_params` | `true` | Emit native `params` guard arrays from typed entries ([Erasure](Erasure)) |
+| `build_on_save` | `true` | Language server erases and writes `.sqf` on each `.sqfts` save |
 | `flags.*` | all `false` | Strictness — see [Strictness Flags](Strictness-Flags) |
 | `declgen.strip_prefixes` | `[]` | Prefixes stripped from `file = "…"` during [`sqfts declgen`](Declgen) |
 

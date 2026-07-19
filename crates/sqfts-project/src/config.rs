@@ -25,9 +25,9 @@ pub struct SqftsConfig {
     pub include_paths: Option<Vec<String>>,
     /// Output directory for `sqfts build`.
     pub out_dir: PathBuf,
-    /// Emit runtime params guards (SPEC §7.4).
+    /// Emit runtime params guards (SPEC §7.4). On by default.
     pub emit_runtime_params: bool,
-    /// When true, the language server erases and writes `.sqf` on each `.sqfts` save.
+    /// When true (default), the language server erases and writes `.sqf` on each `.sqfts` save.
     pub build_on_save: bool,
     /// Type-checker strictness flags.
     pub flags: CheckFlags,
@@ -53,8 +53,8 @@ impl Default for SqftsConfig {
             declarations: vec![],
             include_paths: None,
             out_dir: PathBuf::from("out/sqf"),
-            emit_runtime_params: false,
-            build_on_save: false,
+            emit_runtime_params: true,
+            build_on_save: true,
             flags: CheckFlags::default(),
             declgen: DeclgenConfig::default(),
         }

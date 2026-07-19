@@ -43,7 +43,7 @@ private _pos = getPosATL _vehicle;
 [_owner, _fee] call TAG_fnc_checkPayment
 ```
 
-**Output** (`fn_impoundVehicle.sqf`):
+**Output** (`fn_impoundVehicle.sqf`) with `emit_runtime_params = false`:
 
 ```sqf
 params [
@@ -58,9 +58,11 @@ private _pos = getPosATL _vehicle;
 [_owner, _fee] call TAG_fnc_checkPayment
 ```
 
-## Optional runtime params lowering
+With the default `emit_runtime_params = true`, the `params` block instead becomes the form in [Runtime params lowering](#runtime-params-lowering) below.
 
-With `emit_runtime_params = true`, typed `params` also emit native SQF guard arrays:
+## Runtime params lowering
+
+Enabled by default (`emit_runtime_params = true`). Typed `params` also emit native SQF guard arrays:
 
 ```sqf
 params [

@@ -6,7 +6,7 @@ It is a **superset** of Arma 3 SQF: every valid SQF file is valid SQFts. Annotat
 
 ## Does typed code run slower?
 
-No. Default erasure removes all type syntax. The only opt-in runtime effect is [`emit_runtime_params`](Erasure), which emits the same kind of `params` guards you would write by hand.
+No. Erasure removes all type syntax. With [`emit_runtime_params`](Erasure) (on by default), typed `params` also emit the same kind of guard arrays you would write by hand — set it to `false` for type-stripping only.
 
 ## Do I have to rename every `.sqf`?
 

@@ -154,6 +154,11 @@ impl From<(usize, TypeParseError)> for ScanError {
 
 /// Scan `source` for SQFts annotations.
 pub fn scan(source: &str) -> Result<ScanResult, ScanError> {
+    scan_with(source, false)
+}
+
+/// Scan `source`, optionally treating `#define` replacement lists as statement starts.
+pub fn scan_with(source: &str, include_define_bodies: bool) -> Result<ScanResult, ScanError> {
     let mut annotations = Vec::new();
     let bytes = source.as_bytes();
     let mut i = 0usize;
@@ -173,8 +178,10 @@ pub fn scan(source: &str) -> Result<ScanResult, ScanError> {
             continue;
         }
 
-        // Statement-initial contextual keywords.
-        if is_stmt_start(source, i) {
+        // Statement-initial contextual keywords (optionally inside `#define` bodies).
+        let at_stmt = is_stmt_start(source, i)
+            || (include_define_bodies && is_define_body_start(source, i));
+        if at_stmt {
             if ident_at(source, i, "type") {
                 if let Some(ann) = try_type_alias(source, i)? {
                     i = ann.span.end;
@@ -279,6 +286,34 @@ fn is_stmt_start(src: &str, i: usize) -> bool {
         || trimmed.ends_with(';')
         || trimmed.ends_with('{')
         || trimmed.ends_with('\n')
+}
+
+/// True when `i` is the start of a `#define` replacement list on the same line.
+///
+/// Enables erasing annotations that live in macro bodies (e.g.
+/// `#define TYPED private _x: number = 1`).
+fn is_define_body_start(src: &str, i: usize) -> bool {
+    let line_start = src[..i].rfind('\n').map(|n| n + 1).unwrap_or(0);
+    let prefix = src[line_start..i].trim_end();
+    let Some(rest) = prefix.strip_prefix("#define") else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    let name_len = rest
+        .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .unwrap_or(rest.len());
+    if name_len == 0 {
+        return false;
+    }
+    let after_name = rest[name_len..].trim_start();
+    if let Some(after_paren) = after_name.strip_prefix('(') {
+        let Some(close) = after_paren.find(')') else {
+            return false;
+        };
+        after_paren[close + 1..].trim_start().is_empty()
+    } else {
+        after_name.is_empty()
+    }
 }
 
 fn ident_at(src: &str, i: usize, word: &str) -> bool {

@@ -60,6 +60,10 @@ sources = ["MissionName.Map", "addon_server", "addon_hc", ".sqfts"]
 # Ambient declaration files / directories
 declarations = [".sqfts"]
 
+# Optional: extra #include roots (HEMTT LayerType::Include).
+# Omit to auto-add ./include when present; use [] to disable.
+# include_paths = ["include"]
+
 # Erase .sqfts → .sqf beside the source (same relative path under project root).
 # Use this when HEMTT / your packer already ships those .sqf files in-tree.
 out_dir = "."
@@ -79,6 +83,7 @@ check_plain_sqf = false
 |---|---|
 | `sources` | List every tree that contains (or will contain) `.sqfts`. Include `.sqfts` if you keep demos / scratch files there. |
 | `declarations` | Usually a single `.sqfts/` folder holding `*.d.sqfts`. |
+| `include_paths` | Extra directories for `#include "…"`. Relative `#include "..\..\macro.h"` resolves from the file’s path under the project root without this; use `include_paths` for include-layer names with a leading `\`, e.g. `#include "\shared.h"`. |
 | `out_dir = "."` | Writes `path/to/fn_foo.sqf` next to `path/to/fn_foo.sqfts`. Prefer a separate folder (e.g. `out/sqf`) only if your pack step copies from that output. |
 | `build_on_save` | Editor-only convenience so packaging keeps seeing plain SQF without a manual `sqfts build`. |
 | `check_plain_sqf = false` | Quieter first pass while you grow declarations. Turn on when you want call-site checking in existing `.sqf`. |

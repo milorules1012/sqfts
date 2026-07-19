@@ -32,9 +32,9 @@ All new constructs are invalid syntax in plain SQF, so no existing program parse
 
 ## Preprocessing
 
-SQFts checks run **after** the HEMTT preprocessor, so macros may expand to annotated code in principle; spans map back through the expansion.
+SQFts checks run **after** the HEMTT preprocessor, so macros may expand to annotated code; spans map back through the expansion. A second scan/erase pass on the processed buffer lifts annotations that exist only after expansion.
 
-**v1 implementation note:** erasure runs on the *unpreprocessed* source so identity / locality hold. Type annotations must appear **literally** in `.sqfts` source — annotations produced only by macro expansion are out of scope until a later revision that can erase through the preprocessor source map.
+Emit still rewrites **unpreprocessed** source so identity / locality hold. Prefer putting annotation text in `#define` bodies (including via `#include`) so `sqfts build` can erase those original spans.
 
 ## Related handbook pages
 

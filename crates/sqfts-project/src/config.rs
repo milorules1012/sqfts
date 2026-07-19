@@ -17,6 +17,12 @@ pub struct SqftsConfig {
     pub sources: Vec<String>,
     /// Paths to `.d.sqfts` declaration files or directories.
     pub declarations: Vec<String>,
+    /// Extra HEMTT include roots for `#include` (relative to project root).
+    ///
+    /// `None` (field omitted) → auto-add `./include` when that directory exists.
+    /// `Some([])` → no include roots. `Some([...])` → those paths only.
+    #[serde(default)]
+    pub include_paths: Option<Vec<String>>,
     /// Output directory for `sqfts build`.
     pub out_dir: PathBuf,
     /// Emit runtime params guards (SPEC §7.4).
@@ -45,6 +51,7 @@ impl Default for SqftsConfig {
             root: PathBuf::from("."),
             sources: vec![".".into()],
             declarations: vec![],
+            include_paths: None,
             out_dir: PathBuf::from("out/sqf"),
             emit_runtime_params: false,
             build_on_save: false,
@@ -92,6 +99,30 @@ impl SqftsConfig {
             p.to_path_buf()
         } else {
             self.root.join(p)
+        }
+    }
+
+    /// Absolute include directories for the HEMTT preprocessor.
+    ///
+    /// When `include_paths` is omitted from `sqfts.toml`, adds `./include` if it
+    /// exists (HEMTT convention). Explicit lists are resolved and filtered to
+    /// existing directories.
+    #[must_use]
+    pub fn resolved_include_paths(&self) -> Vec<PathBuf> {
+        match &self.include_paths {
+            Some(paths) => paths
+                .iter()
+                .map(|p| self.resolve(p))
+                .filter(|p| p.is_dir())
+                .collect(),
+            None => {
+                let include = self.root.join("include");
+                if include.is_dir() {
+                    vec![include]
+                } else {
+                    vec![]
+                }
+            }
         }
     }
 }

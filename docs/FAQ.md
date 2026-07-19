@@ -30,7 +30,11 @@ Brands prevent mixing coordinate spaces. Convert with engine commands (`ATLToASL
 
 ## Can macros inject types?
 
-Checking sees post-preprocess code, but **erasure** runs on unpreprocessed source in v1. Annotations must appear literally in `.sqfts` files. See [Grammar](Grammar).
+Yes. Checking runs after the HEMTT preprocessor, so annotations that appear only after macro expansion (including from `#include`d headers) are scanned, erased from the processed buffer for parsing, and used for type-checking.
+
+Emit stays byte-local on unpreprocessed files (E1–E3). Annotations written in a `#define` body are erased there when that file is built. Purely synthetic expansion text with no original token span is type-checked but not rewritten at the call site — put the annotation text in the `#define` body so emit can strip it.
+
+Relative `#include` paths resolve from the file under the project root; set `include_paths` in `sqfts.toml` (or keep a top-level `include/`) for include-layer headers as `#include "\header.h"`. See [Configuration](Configuration).
 
 ## Where is the normative spec?
 

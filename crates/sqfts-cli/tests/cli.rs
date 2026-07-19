@@ -39,6 +39,56 @@ out_dir = "out_sqf"
 }
 
 #[test]
+fn check_resolves_relative_include() {
+    let root = fixtures().join("include_mission");
+    let output = bin()
+        .arg("check")
+        .arg(&root)
+        .output()
+        .expect("run sqfts check");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{stdout}{stderr}");
+    assert!(
+        output.status.success() || !combined.contains("preprocessor:"),
+        "relative #include should resolve; got status={:?} out={combined}",
+        output.status
+    );
+    assert!(
+        !combined.contains("IncludeNotFound") && !combined.contains("not found"),
+        "unexpected include failure: {combined}"
+    );
+}
+
+#[test]
+fn build_erases_define_body_annotations() {
+    let dir = tempfile_dir();
+    let src = fixtures().join("macro_typed.sqfts");
+    std::fs::copy(&src, dir.join("macro_typed.sqfts")).unwrap();
+    std::fs::write(
+        dir.join("sqfts.toml"),
+        r#"sources = ["."]
+out_dir = "out_sqf"
+"#,
+    )
+    .unwrap();
+
+    let status = bin()
+        .arg("build")
+        .arg(&dir)
+        .status()
+        .expect("run sqfts build");
+    assert!(status.success());
+
+    let out = std::fs::read_to_string(dir.join("out_sqf/macro_typed.sqf")).unwrap();
+    assert!(
+        out.contains("#define TYPED private _x = 1;"),
+        "define body should be erased, got: {out:?}"
+    );
+    assert!(!out.contains(": number"));
+}
+
+#[test]
 fn identity_plain_sqf_via_syntax() {
     // E1: plain SQF files that happen to be scanned as .sqfts without annotations
     // stay byte-identical. Corpus mass-test is env-gated below.

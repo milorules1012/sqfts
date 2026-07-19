@@ -1,0 +1,2 @@
+#include "../../macro.h"
+private _n: number = HELLO_MACRO;

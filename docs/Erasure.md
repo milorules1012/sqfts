@@ -8,7 +8,7 @@ SQFts annotations are compile-time only. The build step rewrites `.sqfts` → `.
 |---|---|
 | **E1 — Identity** | A file containing no SQFts syntax is emitted byte-for-byte identical |
 | **E2 — Determinism** | Same input and compiler version → identical output bytes |
-| **E3 — Locality** | Only the exact spans of SQFts constructs change; comments, whitespace, line endings, and `#include` directives pass through. Erasure operates on **unpreprocessed** source |
+| **E3 — Locality** | Only the exact spans of SQFts constructs change; comments, whitespace, line endings, and `#include` directives pass through. Emit operates on **unpreprocessed** source (including annotation text inside `#define` bodies) |
 | **E4 — Lint-clean** | Rewrites target HEMTT-friendly forms (e.g. `private _x = v` / `private "_x"`) |
 
 ## Per-construct rules

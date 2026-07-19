@@ -7,6 +7,9 @@ Project settings live in `sqfts.toml` at the project root (or a path you pass to
 ```toml
 sources = ["."]
 declarations = ["."]
+# Optional: HEMTT include roots for #include (relative to project root).
+# Omit to auto-add ./include when that directory exists.
+# include_paths = ["include"]
 out_dir = "out/sqf"
 emit_runtime_params = false
 
@@ -28,6 +31,7 @@ check_plain_sqf = false
 |---|---|---|
 | `sources` | `["."]` | Roots (relative to project root) to walk for `.sqfts` (and `.sqf` when `check_plain_sqf`) |
 | `declarations` | `[]` | Paths to `.d.sqfts` files or directories containing them |
+| `include_paths` | auto | Extra HEMTT include-layer directories. Omitted → add `./include` if present; `[]` → none. Headers there use `#include "\name.h"`. Relative `#include "..\..\macro.h"` resolves from the source file under the project root. |
 | `out_dir` | `out/sqf` | Output directory for `sqfts build` |
 | `emit_runtime_params` | `false` | Emit native `params` guard arrays from typed entries ([Erasure](Erasure)) |
 | `flags.*` | all `false` | Strictness — see [Strictness Flags](Strictness-Flags) |

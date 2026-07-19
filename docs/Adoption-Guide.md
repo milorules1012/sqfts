@@ -60,7 +60,7 @@ No setup step — `sqfts-db` loads [arma3-wiki](Engine-Command-Database) automat
 sqfts check .
 ```
 
-Expect early noise: argument mismatches (`STS2003`) where declarations are still `any` or inferred incorrectly, and possible preprocess/`#include` issues (`STS1004`) if include roots are not yet wired.
+Expect early noise: argument mismatches (`STS2003`) where declarations are still `any` or inferred incorrectly. Relative `#include` paths resolve from the file under the project root; set `include_paths` in `sqfts.toml` (or keep a top-level `include/` directory) for include-layer headers referenced as `#include "\name.h"`.
 
 ### 5. Tighten declarations
 
@@ -101,4 +101,4 @@ project_serviceFee = true;
 
 ## First large check run
 
-On a real mission tree, expect two recurring themes while declarations are still loose: include-path setup for `#include`, and gradual-`any` overload matching edge cases. Both are useful context when triaging the first noisy `sqfts check` pass — tighten high-traffic `*_fnc_*` declarations next so call-site errors become meaningful.
+On a real mission tree, expect gradual-`any` overload matching edge cases while declarations are still loose — useful context when triaging the first noisy `sqfts check` pass. Tighten high-traffic `*_fnc_*` declarations next so call-site errors become meaningful. Configure `include_paths` if scripts use `#include "\name.h"` include-layer headers.

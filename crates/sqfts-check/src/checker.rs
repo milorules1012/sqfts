@@ -3,15 +3,18 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::ops::Range;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use hemtt_common::config::{PDriveOption, PreprocessorOptions};
 use hemtt_preprocessor::Processor;
 use hemtt_sqf::parser::database::Database as HemttDb;
 use hemtt_sqf::{BinaryCommand, Expression, Statement, Statements};
-use hemtt_workspace::Workspace;
+use hemtt_workspace::{LayerType, Workspace};
 use sqfts_db::{CallKind, CommandDb};
-use sqfts_syntax::{erase, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type};
+use sqfts_syntax::{
+    erase, erase_scanned, scan, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type,
+};
 
 use crate::assignability::is_assignable;
 use crate::config::CheckFlags;
@@ -25,7 +28,22 @@ pub struct CheckResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Type-check a single source file.
+/// Filesystem context for HEMTT `#include` resolution.
+///
+/// When `project_root` is set and `source_path` lies under it, the preprocessor
+/// mounts that root (plus `include_paths`) so relative includes resolve. Unit
+/// tests can leave this defaulted for a memory-only VFS.
+#[derive(Debug, Clone, Default)]
+pub struct CheckWorkspace {
+    /// Absolute path of the file being checked (may be virtual for tests).
+    pub source_path: Option<PathBuf>,
+    /// Project root (directory containing `sqfts.toml`).
+    pub project_root: Option<PathBuf>,
+    /// Extra include directories (`LayerType::Include`).
+    pub include_paths: Vec<PathBuf>,
+}
+
+/// Type-check a single source file (memory-only preprocessor workspace).
 pub fn check_source(
     source: &str,
     path: &str,
@@ -33,17 +51,29 @@ pub fn check_source(
     decls: &DeclarationSet,
     flags: &CheckFlags,
 ) -> Result<CheckResult> {
+    check_source_with(source, path, db, decls, flags, &CheckWorkspace::default())
+}
+
+/// Type-check with an optional disk-backed include workspace.
+pub fn check_source_with(
+    source: &str,
+    path: &str,
+    db: &CommandDb,
+    decls: &DeclarationSet,
+    flags: &CheckFlags,
+    workspace: &CheckWorkspace,
+) -> Result<CheckResult> {
     let mut result = CheckResult::default();
     result.diagnostics.extend(decls.diagnostics.clone());
 
     // HEMTT's preprocessor strips comments and its AST spans are into that
-    // processed buffer. We also normalize CRLF→LF so Position offsets (into the
-    // virtual check.sqf) line up with Rust string byte indexes.
+    // processed buffer. We also normalize CRLF→LF so Position offsets line up
+    // with Rust string byte indexes.
     let source_lf = source.replace("\r\n", "\n");
     let uses_crlf = source_lf.len() != source.len();
 
     let is_plain = path.ends_with(".sqf") && !path.ends_with(".d.sqfts");
-    let (erased_lf, annotations, span_map, original_lf) = if is_plain {
+    let (erased_lf, mut annotations, span_map, original_lf) = if is_plain {
         (
             source_lf.clone(),
             Vec::new(),
@@ -66,28 +96,80 @@ pub fn check_source(
         }
     };
 
-    // Parse erased SQF via HEMTT (returns statements + Processed for span remap)
-    let (statements, processed) = match parse_sqf(&erased_lf) {
-        Ok(v) => v,
+    // Preprocess erased SQF (disk workspace when available).
+    let processed_pre = match preprocess_sqf(&erased_lf, workspace) {
+        Ok(p) => p,
         Err(diags) => {
-            for parse_diag in diags {
-                let span = parse_diag.span.map(|span| {
-                    let mapped = span_map.to_original(span.start)..span_map.to_original(span.end);
-                    if uses_crlf {
-                        lf_range_to_crlf(source, &mapped)
-                    } else {
-                        mapped
-                    }
-                });
+            push_parse_diags(&mut result, diags, &span_map, source, uses_crlf);
+            return Ok(result);
+        }
+    };
+
+    // Annotations that appear only after macro expansion: scan processed text,
+    // erase them, and parse the erased-processed buffer.
+    let processed_text = processed_pre.as_str().to_string();
+    let expanded_scan = match scan(&processed_text) {
+        Ok(s) => s,
+        Err(e) => {
+            result.diagnostics.push(Diagnostic {
+                code: StsCode::SyntaxError,
+                severity: Severity::Error,
+                message: format!("post-preprocess scan: {e}"),
+                span: None,
+                related: vec![],
+            });
+            return Ok(result);
+        }
+    };
+
+    enum ParseMode {
+        Direct,
+        ViaErasedProcessed {
+            processed2: hemtt_workspace::reporting::Processed,
+            proc_erase_map: SpanMap,
+        },
+    }
+
+    let (statements, parse_mode) = if expanded_scan.annotations.is_empty() {
+        match hemtt_sqf::parser::run(&HemttDb::a3(false), &processed_pre) {
+            Ok(s) => (s, ParseMode::Direct),
+            Err(hemtt_sqf::parser::ParserError::ParsingError(codes))
+            | Err(hemtt_sqf::parser::ParserError::LexingError(codes)) => {
+                let diags = codes
+                    .iter()
+                    .map(|c| ParseDiagnostic::from_code(&**c, &erased_lf))
+                    .collect();
+                push_parse_diags(&mut result, diags, &span_map, source, uses_crlf);
+                return Ok(result);
+            }
+        }
+    } else {
+        let erased_proc = match erase_scanned(&expanded_scan, &EraseOptions::default()) {
+            Ok(e) => e,
+            Err(e) => {
                 result.diagnostics.push(Diagnostic {
                     code: StsCode::SyntaxError,
                     severity: Severity::Error,
-                    message: parse_diag.message,
-                    span,
+                    message: e.to_string(),
+                    span: None,
                     related: vec![],
                 });
+                return Ok(result);
             }
-            return Ok(result);
+        };
+        annotations.extend(erased_proc.annotations.clone());
+        match parse_memory_sqf(&erased_proc.text) {
+            Ok((stmts, processed2)) => (
+                stmts,
+                ParseMode::ViaErasedProcessed {
+                    processed2,
+                    proc_erase_map: erased_proc.span_map,
+                },
+            ),
+            Err(diags) => {
+                push_parse_diags(&mut result, diags, &span_map, source, uses_crlf);
+                return Ok(result);
+            }
         }
     };
 
@@ -102,8 +184,52 @@ pub fn check_source(
         typed_locals: HashMap::new(),
     };
 
-    // Seed typed locals from annotations
-    for ann in &annotations {
+    seed_annotations(&mut ctx, &annotations, path);
+
+    ctx.check_statements(&statements);
+
+    let map_span = |span: Range<usize>| -> Range<usize> {
+        match &parse_mode {
+            ParseMode::Direct => map_ast_span_to_source(&processed_pre, &span_map, span),
+            ParseMode::ViaErasedProcessed {
+                processed2,
+                proc_erase_map,
+            } => map_ast_span_composed(
+                processed2,
+                &processed_pre,
+                proc_erase_map,
+                &span_map,
+                span,
+            ),
+        }
+    };
+
+    // Map diagnostic spans: AST → … → original LF → (optional) CRLF document
+    for mut d in ctx.diagnostics {
+        if let Some(span) = d.span.take() {
+            let mapped = map_span(span);
+            d.span = Some(if uses_crlf {
+                lf_range_to_crlf(source, &mapped)
+            } else {
+                mapped
+            });
+        }
+        for related in &mut d.related {
+            let mapped = map_span(related.1.clone());
+            related.1 = if uses_crlf {
+                lf_range_to_crlf(source, &mapped)
+            } else {
+                mapped
+            };
+        }
+        result.diagnostics.push(d);
+    }
+    let _ = erased_lf;
+    Ok(result)
+}
+
+fn seed_annotations(ctx: &mut CheckCtx<'_>, annotations: &[Annotation], path: &str) {
+    for ann in annotations {
         match &ann.kind {
             AnnotationKind::TypedPrivate { name, ty, .. } => {
                 ctx.typed_locals.insert(name.clone(), ty.clone());
@@ -158,32 +284,32 @@ pub fn check_source(
             AnnotationKind::Cast { .. } => {}
         }
     }
+}
 
-    ctx.check_statements(&statements);
-
-    // Map diagnostic spans: processed → erased LF → original LF → (optional) CRLF document
-    for mut d in ctx.diagnostics {
-        if let Some(span) = d.span.take() {
-            let mapped = map_ast_span_to_source(&processed, &span_map, span);
-            d.span = Some(if uses_crlf {
+fn push_parse_diags(
+    result: &mut CheckResult,
+    diags: Vec<ParseDiagnostic>,
+    span_map: &SpanMap,
+    source: &str,
+    uses_crlf: bool,
+) {
+    for parse_diag in diags {
+        let span = parse_diag.span.map(|span| {
+            let mapped = span_map.to_original(span.start)..span_map.to_original(span.end);
+            if uses_crlf {
                 lf_range_to_crlf(source, &mapped)
             } else {
                 mapped
-            });
-        }
-        for related in &mut d.related {
-            let mapped = map_ast_span_to_source(&processed, &span_map, related.1.clone());
-            related.1 = if uses_crlf {
-                lf_range_to_crlf(source, &mapped)
-            } else {
-                mapped
-            };
-        }
-        result.diagnostics.push(d);
+            }
+        });
+        result.diagnostics.push(Diagnostic {
+            code: StsCode::SyntaxError,
+            severity: Severity::Error,
+            message: parse_diag.message,
+            span,
+            related: vec![],
+        });
     }
-    let _ = path;
-    let _ = erased_lf;
-    Ok(result)
 }
 
 #[derive(Debug)]
@@ -192,14 +318,103 @@ struct ParseDiagnostic {
     span: Option<Range<usize>>,
 }
 
-fn parse_sqf(
+/// Preprocess only (no parse). Uses a disk-backed workspace when possible.
+fn preprocess_sqf(
+    source_lf: &str,
+    workspace: &CheckWorkspace,
+) -> Result<hemtt_workspace::reporting::Processed, Vec<ParseDiagnostic>> {
+    let path = open_preprocess_path(source_lf, workspace)?;
+    Processor::run(&path, &PreprocessorOptions::default()).map_err(|(_files, e)| {
+        format_preprocess_err(e)
+    })
+}
+
+/// Parse via a fresh memory workspace (for already-preprocessed, annotation-erased text).
+fn parse_memory_sqf(
     source_lf: &str,
 ) -> Result<(Statements, hemtt_workspace::reporting::Processed), Vec<ParseDiagnostic>> {
-    let workspace = Workspace::builder()
+    let processed = preprocess_sqf(source_lf, &CheckWorkspace::default())?;
+    match hemtt_sqf::parser::run(&HemttDb::a3(false), &processed) {
+        Ok(s) => Ok((s, processed)),
+        Err(hemtt_sqf::parser::ParserError::ParsingError(codes))
+        | Err(hemtt_sqf::parser::ParserError::LexingError(codes)) => Err(codes
+            .iter()
+            .map(|c| ParseDiagnostic::from_code(&**c, source_lf))
+            .collect()),
+    }
+}
+
+fn open_preprocess_path(
+    source_lf: &str,
+    workspace: &CheckWorkspace,
+) -> Result<hemtt_workspace::WorkspacePath, Vec<ParseDiagnostic>> {
+    let root = workspace.project_root.as_ref();
+    let source_path = workspace.source_path.as_ref();
+
+    if let (Some(root), Some(source_path)) = (root, source_path) {
+        let root = root.canonicalize().unwrap_or_else(|_| root.clone());
+        let source_path = source_path
+            .canonicalize()
+            .unwrap_or_else(|_| source_path.clone());
+        if let Ok(rel) = source_path.strip_prefix(&root) {
+            let rel_vfs = rel
+                .to_string_lossy()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+                .to_string();
+            if !rel_vfs.is_empty() {
+                let mut builder = Workspace::builder().physical(&root, LayerType::Source);
+                for include in &workspace.include_paths {
+                    let include = include.canonicalize().unwrap_or_else(|_| include.clone());
+                    if include.is_dir() {
+                        builder = builder.physical(&include, LayerType::Include);
+                    }
+                }
+                // Memory overlay so we can write the erased buffer without
+                // touching disk (LSP dirty buffers).
+                let ws = builder
+                    .memory()
+                    .finish(None, false, &PDriveOption::Disallow)
+                    .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                let path = ws
+                    .join(&rel_vfs)
+                    .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                // Memory overlay may lack parent dirs for nested paths.
+                let parent = path.parent();
+                let _ = ensure_vfs_dirs(&parent);
+                {
+                    let mut f = path
+                        .create_file()
+                        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                    f.write_all(source_lf.as_bytes())
+                        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                }
+                return Ok(path);
+            }
+        }
+
+        // Path outside project root (or strip_prefix failed): mount the file's
+        // parent so relative #include still resolves.
+        if source_path.is_file() || source_path.parent().is_some() {
+            if let Ok(path) = hemtt_workspace::WorkspacePath::slim_file(&source_path) {
+                {
+                    let mut f = path
+                        .create_file()
+                        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                    f.write_all(source_lf.as_bytes())
+                        .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
+                }
+                return Ok(path);
+            }
+        }
+    }
+
+    // Memory-only fallback (unit tests without disk layout).
+    let ws = Workspace::builder()
         .memory()
         .finish(None, false, &PDriveOption::Disallow)
         .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
-    let path = workspace
+    let path = ws
         .join("check.sqf")
         .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
     {
@@ -209,19 +424,72 @@ fn parse_sqf(
         f.write_all(source_lf.as_bytes())
             .map_err(|e| vec![ParseDiagnostic::without_span(e.to_string())])?;
     }
-    let processed = Processor::run(&path, &PreprocessorOptions::default()).map_err(|e| {
-        vec![ParseDiagnostic::without_span(format!(
-            "preprocessor: {e:?}"
-        ))]
-    })?;
-    match hemtt_sqf::parser::run(&HemttDb::a3(false), &processed) {
-        Ok(s) => Ok((s, processed)),
-        Err(hemtt_sqf::parser::ParserError::ParsingError(codes))
-        | Err(hemtt_sqf::parser::ParserError::LexingError(codes)) => Err(codes
-            .iter()
-            .map(|c| ParseDiagnostic::from_code(&**c, source_lf))
-            .collect()),
+    Ok(path)
+}
+
+fn format_preprocess_err(e: hemtt_preprocessor::Error) -> Vec<ParseDiagnostic> {
+    if let Some(code) = e.get_code() {
+        let msg = code.message();
+        return vec![ParseDiagnostic::without_span(format!("preprocessor: {msg}"))];
     }
+    vec![ParseDiagnostic::without_span(format!("preprocessor: {e}"))]
+}
+
+fn ensure_vfs_dirs(path: &hemtt_workspace::WorkspacePath) -> Result<(), ()> {
+    if path.as_str().is_empty() || path.as_str() == "/" {
+        return Ok(());
+    }
+    if path.exists().unwrap_or(false) {
+        return Ok(());
+    }
+    let parent = path.parent();
+    ensure_vfs_dirs(&parent)?;
+    path.create_dir().map_err(|_| ())
+}
+
+/// Map an AST span through processed-erase SpanMap + first Processed + literal SpanMap.
+///
+/// Chain: processed2 AST → erased-processed → processed1 offsets → erased-unprocessed
+/// → original `.sqfts`.
+fn map_ast_span_composed(
+    processed_parse: &hemtt_workspace::reporting::Processed,
+    processed_pre: &hemtt_workspace::reporting::Processed,
+    proc_erase_map: &SpanMap,
+    literal_span_map: &SpanMap,
+    span: Range<usize>,
+) -> Range<usize> {
+    let erased_start = processed_offset_to_erased(processed_parse, span.start);
+    let erased_end = if span.end > span.start {
+        let last_incl = processed_offset_to_erased(processed_parse, span.end - 1);
+        if let Some(m) = processed_parse.mapping(span.end - 1) {
+            m.original().end().offset().max(last_incl)
+        } else {
+            last_incl.saturating_add(1)
+        }
+    } else {
+        erased_start
+    };
+
+    // erased-processed → offsets in the first processed buffer
+    let pre_start = proc_erase_map.to_original(erased_start);
+    let pre_end = proc_erase_map.to_original(erased_end.max(erased_start));
+
+    // processed1 offsets → erased-unprocessed (main file / include original)
+    let unproc_start = processed_offset_to_erased(processed_pre, pre_start);
+    let unproc_end = if pre_end > pre_start {
+        let last_incl = processed_offset_to_erased(processed_pre, pre_end - 1);
+        if let Some(m) = processed_pre.mapping(pre_end - 1) {
+            m.original().end().offset().max(last_incl)
+        } else {
+            last_incl.saturating_add(1)
+        }
+    } else {
+        unproc_start
+    };
+
+    let start = literal_span_map.to_original(unproc_start);
+    let end = literal_span_map.to_original(unproc_end.max(unproc_start));
+    start..end.max(start)
 }
 
 impl ParseDiagnostic {
@@ -995,6 +1263,73 @@ _mode = "north";
                 .iter()
                 .any(|d| d.code == StsCode::AssignMismatch),
             "expected assign mismatch for invalid literal, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn macro_expanded_typed_private_is_checked() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let src = r#"#define TYPED private _x: number = 1;
+TYPED
+_x = "nope";
+"#;
+        let result = check_source(src, "macro_typed.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::AssignMismatch),
+            "expected STS2004 from macro-expanded typed local, got {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::SyntaxError),
+            "should not be a preprocess/parse failure: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn relative_include_resolves_with_workspace() {
+        let root = std::env::temp_dir().join(format!(
+            "sqfts-include-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("core/functions")).unwrap();
+        std::fs::write(root.join("macro.h"), "#define HELLO_MACRO 1\n").unwrap();
+        let src_path = root.join("core/functions/fn_x.sqfts");
+        // Forward slashes work in HEMTT includes on Windows too.
+        let src = "#include \"../../macro.h\"\nprivate _n: number = HELLO_MACRO;\n";
+        std::fs::write(&src_path, src).unwrap();
+
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+        let ws = CheckWorkspace {
+            source_path: Some(src_path.clone()),
+            project_root: Some(root.clone()),
+            include_paths: vec![],
+        };
+        let result =
+            check_source_with(src, src_path.to_str().unwrap(), &db, &decls, &flags, &ws).unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::SyntaxError),
+            "relative include should resolve: {:?}",
             result.diagnostics
         );
     }

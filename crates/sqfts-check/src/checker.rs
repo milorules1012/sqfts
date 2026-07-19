@@ -16,7 +16,7 @@ use sqfts_syntax::{
     erase, erase_scanned, scan, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type,
 };
 
-use crate::assignability::{array_element_ty, is_assignable};
+use crate::assignability::{array_element_ty, fixed_shape_slots, is_assignable};
 use crate::config::CheckFlags;
 use crate::decls::DeclarationSet;
 use crate::diagnostics::{Diagnostic, Severity, StsCode};
@@ -830,8 +830,8 @@ impl CheckCtx<'_> {
             }
         }
 
-        // Homogeneous `T[]` mutation: wiki types element slots as `any`, so check
-        // assignability to `T` explicitly (same pattern as HashMap `set`).
+        // Homogeneous `T[]` / fixed-shape tuple mutation: wiki types element
+        // slots as `any`, so check assignability explicitly.
         self.check_array_mutation(name, &left_ty, right, &right_ty);
 
         // select / # element type
@@ -855,7 +855,8 @@ impl CheckCtx<'_> {
     }
 
     /// When the left operand is homogeneous `T[]` (or a brand that is structurally
-    /// `T[]`), check mutation RHS values against `T`.
+    /// `T[]`), check mutation RHS values against `T`. Fixed-shape tuples (and
+    /// tuple-shaped brands) check `set` by index and reject length-changing ops.
     fn check_array_mutation(
         &mut self,
         name: &str,
@@ -863,6 +864,11 @@ impl CheckCtx<'_> {
         right: &Expression,
         right_ty: &Type,
     ) {
+        if let Some(slots) = fixed_shape_slots(left_ty) {
+            self.check_tuple_mutation(name, left_ty, &slots, right);
+            return;
+        }
+
         let Some(elem_ty) = array_element_ty(left_ty) else {
             return;
         };
@@ -940,6 +946,63 @@ impl CheckCtx<'_> {
                     }
                 }
             }
+        }
+    }
+
+    /// Fixed-shape tuple mutation: `set` checks the slot type; length-changing
+    /// commands are rejected because the result would no longer match the tuple.
+    fn check_tuple_mutation(
+        &mut self,
+        name: &str,
+        left_ty: &Type,
+        slots: &[(Type, bool)],
+        right: &Expression,
+    ) {
+        if name.eq_ignore_ascii_case("set") {
+            let Expression::Array(elems, _) = right else {
+                return;
+            };
+            let Some(idx_expr) = elems.first() else {
+                return;
+            };
+            let Some(val) = elems.get(1) else {
+                return;
+            };
+            let Expression::Number(n, idx_span) = idx_expr else {
+                // Non-literal index — gradual, skip slot check.
+                return;
+            };
+            let idx = n.0 as usize;
+            let Some((slot_ty, _)) = slots.get(idx) else {
+                self.diagnostics.push(Diagnostic::error(
+                    StsCode::AssignMismatch,
+                    format!("index `{idx}` out of range for tuple `{left_ty}`"),
+                    idx_span.clone(),
+                ));
+                return;
+            };
+            let vt = self.type_of(val);
+            if !is_assignable(&vt, slot_ty, &self.flags) {
+                self.diagnostics.push(Diagnostic::error(
+                    StsCode::AssignMismatch,
+                    format!("`{vt}` not assignable to `{slot_ty}` for tuple element {idx}"),
+                    val.span(),
+                ));
+            }
+            return;
+        }
+
+        if name.eq_ignore_ascii_case("pushBack")
+            || name.eq_ignore_ascii_case("pushBackUnique")
+            || name.eq_ignore_ascii_case("append")
+            || name.eq_ignore_ascii_case("insert")
+            || name.eq_ignore_ascii_case("resize")
+        {
+            self.diagnostics.push(Diagnostic::error(
+                StsCode::AssignMismatch,
+                format!("cannot `{name}` on fixed-shape tuple `{left_ty}`"),
+                right.span(),
+            ));
         }
     }
 
@@ -1399,6 +1462,45 @@ _a pushBack 1;
                 .iter()
                 .all(|d| d.code != StsCode::ArgMismatch && d.code != StsCode::AssignMismatch),
             "untyped array should allow any element, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn tuple_mutation_checks_slots_and_rejects_push() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        // `set [1, 1]` is valid (slot 1 is number); wrong-slot set + push must error.
+        let src = r#"private _tuple: [string, number, object] = ["", 3, player];
+_tuple set [1, 1];
+_tuple set [0, 1];
+_tuple pushBackUnique group player;
+"#;
+        let result = check_source(src, "tuple_mutation.sqfts", &db, &decls, &flags).unwrap();
+        let mismatches = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == StsCode::AssignMismatch)
+            .count();
+        assert!(
+            mismatches >= 2,
+            "expected STS2004 for bad set and pushBackUnique, got {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result.diagnostics.iter().any(|d| {
+                d.code == StsCode::AssignMismatch && d.message.contains("tuple element 0")
+            }),
+            "expected slot-0 mismatch, got {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result.diagnostics.iter().any(|d| {
+                d.code == StsCode::AssignMismatch && d.message.contains("pushBackUnique")
+            }),
+            "expected pushBackUnique rejection, got {:?}",
             result.diagnostics
         );
     }

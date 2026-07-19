@@ -86,6 +86,20 @@ pub fn array_element_ty(ty: &Type) -> Option<Type> {
     }
 }
 
+/// Fixed-shape slots of a tuple, or of brands that are structurally tuples
+/// (e.g. `positionATL` → `[number, number, number]`).
+#[must_use]
+pub fn fixed_shape_slots(ty: &Type) -> Option<Vec<(Type, bool)>> {
+    match ty {
+        Type::Tuple(elems) => Some(elems.clone()),
+        Type::Brand(b) => match brand_structural(*b) {
+            Type::Tuple(elems) => Some(elems),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 fn is_assignable_inner(from: &Type, to: &Type, flags: &CheckFlags) -> bool {
     if from == to {
         return true;

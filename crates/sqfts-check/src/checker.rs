@@ -969,7 +969,20 @@ impl CheckCtx<'_> {
                 return;
             };
             let Expression::Number(n, idx_span) = idx_expr else {
-                // Non-literal index — gradual, skip slot check.
+                // Dynamic index: value must be assignable to every slot (sound write).
+                let vt = self.type_of(val);
+                for (i, (slot_ty, _)) in slots.iter().enumerate() {
+                    if !is_assignable(&vt, slot_ty, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!(
+                                "`{vt}` not assignable to every element of tuple `{left_ty}` (not assignable to `{slot_ty}` at index {i})"
+                            ),
+                            val.span(),
+                        ));
+                        break;
+                    }
+                }
                 return;
             };
             let idx = n.0 as usize;
@@ -1501,6 +1514,26 @@ _tuple pushBackUnique group player;
                 d.code == StsCode::AssignMismatch && d.message.contains("pushBackUnique")
             }),
             "expected pushBackUnique rejection, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn tuple_set_with_dynamic_index_requires_all_slots() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _tuple: [string, number, object] = ["", 3, player];
+private _num: number = 0;
+_tuple set [_num, 100];
+"#;
+        let result = check_source(src, "tuple_dyn_set.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result.diagnostics.iter().any(|d| {
+                d.code == StsCode::AssignMismatch && d.message.contains("every element")
+            }),
+            "expected STS2004 for dynamic-index set, got {:?}",
             result.diagnostics
         );
     }

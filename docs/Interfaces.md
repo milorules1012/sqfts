@@ -48,4 +48,4 @@ Interfaces are erased entirely, like `type` statements.
 
 ## Future
 
-Parameterized `hashMap<K, V>` beyond interfaces is [future work](Future-Work).
+Parameterized `hashMap<K, V>` beyond interfaces is tracked under [Missing Features](Missing-Features) (bundle **B-HashMapTyping**).

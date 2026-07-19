@@ -36,5 +36,6 @@
 - [Architecture](Architecture)
 - [Design History](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/README.md)
 - [Adoption Guide](Adoption-Guide)
+- [Missing Features](Missing-Features)
 - [Future Work](Future-Work)
 - [FAQ](FAQ)

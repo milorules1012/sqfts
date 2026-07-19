@@ -57,7 +57,7 @@ With the [`strictNil`](Strictness-Flags) flag, `T | nothing` must be narrowed (e
 
 ## `code` (v1)
 
-`code` is **opaque** in v1: the checker does not track what a code block expects in `_this` or returns. Parameterized forms such as `code(unit: object) => boolean` are [future work](Future-Work).
+`code` is **opaque** in v1: the checker does not track what a code block expects in `_this` or returns. Parameterized forms such as `code(unit: object) => boolean` are tracked under [Missing Features](Missing-Features) (bundle **B-TypedCode**).
 
 Code *literals* `{ … }` are still checked internally like any other scope.
 

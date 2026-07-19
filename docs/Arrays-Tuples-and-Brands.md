@@ -86,3 +86,5 @@ Disable brands entirely with [`no_position_brands`](Strictness-Flags) — they c
 ## Operators
 
 Array operators (`select`, `#`, `+`, …) are typed like other engine commands. When the array element type is known, `_arr # 0` yields that element type.
+
+v1 still has soundness holes around mutation (`pushBack`, `set`, …) and collection commands accepting non-arrays; see [Missing Features](Missing-Features) (bundle **B-ArraySoundness**).

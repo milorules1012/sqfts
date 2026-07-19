@@ -22,7 +22,7 @@ From [arma3-wiki](https://github.com/acemod/arma3-wiki), loaded the same way HEM
 
 ## Why is `code` opaque?
 
-v1 does not yet track `_this` / return types of code blocks. Parameterized `code(…)` types are [future work](Future-Work). Code literals are still type-checked internally as scopes.
+v1 does not yet track `_this` / return types of code blocks. Parameterized `code(…)` types are listed under [Missing Features](Missing-Features). Code literals are still type-checked internally as scopes.
 
 ## Why did `positionATL` reject my `positionASL`?
 

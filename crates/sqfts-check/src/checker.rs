@@ -729,9 +729,14 @@ impl CheckCtx<'_> {
                 self.resolve_command(cmd.as_str(), CallKind::Nular, &[], span)
             }
             Expression::UnaryCommand(cmd, arg, span) => {
-                let arg_expected = self.expected_param_ty(cmd.as_str(), CallKind::Unary, 0);
+                let name = cmd.as_str();
+                // `try {…}` / `default {…}` — value is the block result (wiki often says any/nothing).
+                if name.eq_ignore_ascii_case("try") || name.eq_ignore_ascii_case("default") {
+                    return self.branch_value_ty(arg);
+                }
+                let arg_expected = self.expected_param_ty(name, CallKind::Unary, 0);
                 let arg_ty = self.type_of_expected(arg, arg_expected.as_ref());
-                self.resolve_command(cmd.as_str(), CallKind::Unary, &[arg_ty], span)
+                self.resolve_command(name, CallKind::Unary, &[arg_ty], span)
             }
             Expression::BinaryCommand(cmd, left, right, span) => {
                 self.type_binary(cmd, left, right, span)
@@ -847,17 +852,38 @@ impl CheckCtx<'_> {
             }
         }
 
-        // `then` / `else` return wiki `any`, but branch *values* matter for code-block
-        // return checking (`code(…): R`). Propagate arm result types instead.
-        // AST: `if c then {a} else {b}` → `then (if c) (else {a} {b})`.
+        // Control-flow commands return wiki `any`/`nothing`, but branch *values* matter
+        // for parameterized `code(…): R` return checking.
+        //
+        // Shapes (HEMTT AST):
+        //   if c then {a} else {b}  →  then (if c) (else {a} {b})
+        //   switch x do { case k: {v}; default {d}; }  →  do (switch x) { : (case k) {v}; default {d} }
+        //   while {c} do {b} / for … do {b} / with ns do {b}  →  do <header> {b}
+        //   if c exitWith {v}  →  exitWith (if c) {v}
+        //   try {a} catch {b}  →  catch (try {a}) {b}
         if name.eq_ignore_ascii_case("else") {
             let left_ty = self.branch_value_ty(left);
             let right_ty = self.branch_value_ty(right);
             return unify_branch_types(left_ty, right_ty, &self.flags);
         }
-        if name.eq_ignore_ascii_case("then") {
-            let _ = self.type_of(left); // ifType / condition side effects
+        if name.eq_ignore_ascii_case("then")
+            || name.eq_ignore_ascii_case("exitWith")
+            || name == ":"
+        {
+            let _ = self.type_of(left);
             return self.branch_value_ty(right);
+        }
+        if name.eq_ignore_ascii_case("do") {
+            let _ = self.type_of(left);
+            return match right {
+                Expression::Code(stmts) => self.do_body_result(stmts),
+                other => self.branch_value_ty(other),
+            };
+        }
+        if name.eq_ignore_ascii_case("catch") {
+            let left_ty = self.branch_value_ty(left);
+            let right_ty = self.branch_value_ty(right);
+            return unify_branch_types(left_ty, right_ty, &self.flags);
         }
 
         let left_expected = self.expected_param_ty(name, CallKind::Binary, 0);
@@ -941,17 +967,70 @@ impl CheckCtx<'_> {
         self.resolve_command(name, CallKind::Binary, &[left_ty, right_ty], span)
     }
 
-    /// Value produced by a `then`/`else` arm: code-block result, or nested then/else.
+    /// Value produced by a control-flow arm: code-block result, or nested control expr.
     fn branch_value_ty(&mut self, expr: &Expression) -> Type {
         match expr {
             Expression::Code(stmts) => self.type_of_code_result(stmts),
             Expression::BinaryCommand(cmd, left, right, span)
-                if cmd.as_str().eq_ignore_ascii_case("else")
-                    || cmd.as_str().eq_ignore_ascii_case("then") =>
+                if is_value_propagating_binary(cmd.as_str()) =>
             {
                 self.type_binary(cmd, left, right, span)
             }
+            Expression::UnaryCommand(cmd, arg, _)
+                if cmd.as_str().eq_ignore_ascii_case("try")
+                    || cmd.as_str().eq_ignore_ascii_case("default") =>
+            {
+                self.branch_value_ty(arg)
+            }
             other => self.type_of(other),
+        }
+    }
+
+    /// Result of a `… do { … }` body: switch arms unify; otherwise last-statement value.
+    fn do_body_result(&mut self, stmts: &Statements) -> Type {
+        let mut arms: Vec<Type> = Vec::new();
+        let mut saw_switch_arm = false;
+        let mut last_ty = Type::nothing();
+
+        self.symbols.push_scope();
+        for (name, ty) in self.typed_locals.clone() {
+            self.symbols.define_local(&name, ty);
+        }
+
+        for stmt in stmts.content() {
+            match stmt {
+                Statement::Expression(expr, _) => match expr {
+                    Expression::BinaryCommand(cmd, left, right, _) if cmd.as_str() == ":" => {
+                        saw_switch_arm = true;
+                        let _ = self.type_of(left); // `case <value>`
+                        let arm = self.branch_value_ty(right);
+                        last_ty = arm.clone();
+                        arms.push(arm);
+                    }
+                    Expression::UnaryCommand(cmd, arg, _)
+                        if cmd.as_str().eq_ignore_ascii_case("default") =>
+                    {
+                        saw_switch_arm = true;
+                        let arm = self.branch_value_ty(arg);
+                        last_ty = arm.clone();
+                        arms.push(arm);
+                    }
+                    other => {
+                        last_ty = self.type_of(other);
+                    }
+                },
+                other => {
+                    last_ty = self.check_statement_value(other);
+                }
+            }
+        }
+
+        self.symbols.pop_scope();
+
+        if saw_switch_arm {
+            fold_branch_types(arms, &self.flags)
+        } else {
+            last_ty
         }
     }
 
@@ -1174,6 +1253,15 @@ fn extract_parameterized_code(expected: &Type) -> Option<Type> {
     }
 }
 
+fn is_value_propagating_binary(name: &str) -> bool {
+    name.eq_ignore_ascii_case("else")
+        || name.eq_ignore_ascii_case("then")
+        || name.eq_ignore_ascii_case("do")
+        || name.eq_ignore_ascii_case("exitWith")
+        || name.eq_ignore_ascii_case("catch")
+        || name == ":"
+}
+
 /// Unify `then`/`else` branch value types.
 fn unify_branch_types(a: Type, b: Type, flags: &CheckFlags) -> Type {
     if a == b {
@@ -1186,6 +1274,14 @@ fn unify_branch_types(a: Type, b: Type, flags: &CheckFlags) -> Type {
         return a;
     }
     Type::Union(vec![a, b]).normalize()
+}
+
+fn fold_branch_types(arms: Vec<Type>, flags: &CheckFlags) -> Type {
+    let mut iter = arms.into_iter();
+    let Some(first) = iter.next() else {
+        return Type::nothing();
+    };
+    iter.fold(first, |acc, ty| unify_branch_types(acc, ty, flags))
 }
 
 #[cfg(test)]
@@ -1597,6 +1693,98 @@ _pred = _onKilled;
                 .all(|d| d.code != StsCode::ReturnMismatch),
             "number branches should satisfy code(): number, got {:?}",
             result_ok.diagnostics
+        );
+    }
+
+    #[test]
+    fn typed_code_switch_and_other_control_return_mismatch() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let switch_bad = r#"private _a: code(unit: object): boolean = {
+	switch (alive player) do {
+		case 3: {4};
+		default {1};
+	};
+};
+"#;
+        let result = check_source(switch_bad, "switch_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for switch number arms vs boolean, got {:?}",
+            result.diagnostics
+        );
+
+        let switch_ok = r#"private _a: code(unit: object): number = {
+	switch (alive player) do {
+		case 3: {4};
+		default {1};
+	};
+};
+"#;
+        let ok = check_source(switch_ok, "switch_ok.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            ok.diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::ReturnMismatch),
+            "switch number arms should satisfy code(): number, got {:?}",
+            ok.diagnostics
+        );
+
+        let while_bad = r#"private _a: code(): boolean = {
+	while {false} do {1};
+};
+"#;
+        let w = check_source(while_bad, "while_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            w.diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for while body number vs boolean, got {:?}",
+            w.diagnostics
+        );
+
+        let for_bad = r#"private _a: code(): boolean = {
+	for "_i" from 0 to 1 do {2};
+};
+"#;
+        let f = check_source(for_bad, "for_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            f.diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for for body number vs boolean, got {:?}",
+            f.diagnostics
+        );
+
+        let try_bad = r#"private _a: code(): boolean = {
+	try {1} catch {2};
+};
+"#;
+        let t = check_source(try_bad, "try_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            t.diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for try/catch number vs boolean, got {:?}",
+            t.diagnostics
+        );
+
+        let exit_bad = r#"private _a: code(): boolean = {
+	if (true) exitWith {5};
+};
+"#;
+        let e = check_source(exit_bad, "exit_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            e.diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for exitWith number vs boolean, got {:?}",
+            e.diagnostics
         );
     }
 

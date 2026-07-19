@@ -72,6 +72,34 @@ fn brand_structural(b: Brand) -> Type {
     }
 }
 
+/// Homogeneous element type of `T[]`, or of brands that are structurally `T[]`
+/// (e.g. `turretPath` / `treePath` → `number`).
+#[must_use]
+pub fn array_element_ty(ty: &Type) -> Option<Type> {
+    match ty {
+        Type::ArrayOf(inner) => Some((**inner).clone()),
+        Type::Brand(b) => match brand_structural(*b) {
+            Type::ArrayOf(inner) => Some(*inner),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Fixed-shape slots of a tuple, or of brands that are structurally tuples
+/// (e.g. `positionATL` → `[number, number, number]`).
+#[must_use]
+pub fn fixed_shape_slots(ty: &Type) -> Option<Vec<(Type, bool)>> {
+    match ty {
+        Type::Tuple(elems) => Some(elems.clone()),
+        Type::Brand(b) => match brand_structural(*b) {
+            Type::Tuple(elems) => Some(elems),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 fn is_assignable_inner(from: &Type, to: &Type, flags: &CheckFlags) -> bool {
     if from == to {
         return true;

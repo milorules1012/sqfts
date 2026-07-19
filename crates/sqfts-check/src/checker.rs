@@ -847,6 +847,19 @@ impl CheckCtx<'_> {
             }
         }
 
+        // `then` / `else` return wiki `any`, but branch *values* matter for code-block
+        // return checking (`code(…): R`). Propagate arm result types instead.
+        // AST: `if c then {a} else {b}` → `then (if c) (else {a} {b})`.
+        if name.eq_ignore_ascii_case("else") {
+            let left_ty = self.branch_value_ty(left);
+            let right_ty = self.branch_value_ty(right);
+            return unify_branch_types(left_ty, right_ty, &self.flags);
+        }
+        if name.eq_ignore_ascii_case("then") {
+            let _ = self.type_of(left); // ifType / condition side effects
+            return self.branch_value_ty(right);
+        }
+
         let left_expected = self.expected_param_ty(name, CallKind::Binary, 0);
         let right_expected = self.expected_param_ty(name, CallKind::Binary, 1);
         let left_ty = self.type_of_expected(left, left_expected.as_ref());
@@ -926,6 +939,31 @@ impl CheckCtx<'_> {
         }
 
         self.resolve_command(name, CallKind::Binary, &[left_ty, right_ty], span)
+    }
+
+    /// Value produced by a `then`/`else` arm: code-block result, or nested then/else.
+    fn branch_value_ty(&mut self, expr: &Expression) -> Type {
+        match expr {
+            Expression::Code(stmts) => self.type_of_code_result(stmts),
+            Expression::BinaryCommand(cmd, left, right, span)
+                if cmd.as_str().eq_ignore_ascii_case("else")
+                    || cmd.as_str().eq_ignore_ascii_case("then") =>
+            {
+                self.type_binary(cmd, left, right, span)
+            }
+            other => self.type_of(other),
+        }
+    }
+
+    /// Result type of executing a `{ … }` block (last statement value).
+    fn type_of_code_result(&mut self, stmts: &Statements) -> Type {
+        self.symbols.push_scope();
+        for (name, ty) in self.typed_locals.clone() {
+            self.symbols.define_local(&name, ty);
+        }
+        let ty = self.check_statements_value(stmts);
+        self.symbols.pop_scope();
+        ty
     }
 
     fn check_fn_args(
@@ -1134,6 +1172,20 @@ fn extract_parameterized_code(expected: &Type) -> Option<Type> {
         }
         _ => None,
     }
+}
+
+/// Unify `then`/`else` branch value types.
+fn unify_branch_types(a: Type, b: Type, flags: &CheckFlags) -> Type {
+    if a == b {
+        return a;
+    }
+    if is_assignable(&a, &b, flags) {
+        return b;
+    }
+    if is_assignable(&b, &a, flags) {
+        return a;
+    }
+    Type::Union(vec![a, b]).normalize()
 }
 
 #[cfg(test)]
@@ -1502,6 +1554,49 @@ _pred = _onKilled;
             result.diagnostics.is_empty(),
             "unexpected diagnostics: {:?}",
             result.diagnostics
+        );
+    }
+
+    #[test]
+    fn typed_code_if_then_else_return_mismatch() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _a: code(unit: object): boolean = {
+	if (alive player) then {
+		3
+	} else {
+		4
+	}
+};
+"#;
+        let result = check_source(src, "if_ret.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == StsCode::ReturnMismatch),
+            "expected STS2005 for number branches vs boolean, got {:?}",
+            result.diagnostics
+        );
+
+        let ok = r#"private _a: code(unit: object): number = {
+	if (alive player) then {
+		3
+	} else {
+		4
+	}
+};
+"#;
+        let result_ok = check_source(ok, "if_ret_ok.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result_ok
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::ReturnMismatch),
+            "number branches should satisfy code(): number, got {:?}",
+            result_ok.diagnostics
         );
     }
 

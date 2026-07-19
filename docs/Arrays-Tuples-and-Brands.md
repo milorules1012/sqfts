@@ -87,4 +87,4 @@ Disable brands entirely with [`no_position_brands`](Strictness-Flags) — they c
 
 Array operators (`select`, `#`, `+`, …) are typed like other engine commands. When the array element type is known, `_arr # 0` yields that element type.
 
-v1 still has soundness holes around mutation (`pushBack`, `set`, …) and collection commands accepting non-arrays; see [Missing Features](Missing-Features) (bundle **B-ArraySoundness**).
+Commands that expect an `array` reject non-array receivers (`player forEach …` → `STS2003`). Mutating a homogeneous `T[]` (`pushBack`, `set`, `append`, …) checks the value against `T` (`STS2004`). Untyped `array` stays gradual. Follow-ons such as `readonly T[]` and safer `#` indexing are listed under [Missing Features](Missing-Features) (bundle **B-ArraySoundness**).

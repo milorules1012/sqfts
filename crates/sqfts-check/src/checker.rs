@@ -16,7 +16,7 @@ use sqfts_syntax::{
     erase, erase_scanned, scan, Annotation, AnnotationKind, EraseOptions, Primitive, SpanMap, Type,
 };
 
-use crate::assignability::is_assignable;
+use crate::assignability::{array_element_ty, is_assignable};
 use crate::config::CheckFlags;
 use crate::decls::DeclarationSet;
 use crate::diagnostics::{Diagnostic, Severity, StsCode};
@@ -830,6 +830,10 @@ impl CheckCtx<'_> {
             }
         }
 
+        // Homogeneous `T[]` mutation: wiki types element slots as `any`, so check
+        // assignability to `T` explicitly (same pattern as HashMap `set`).
+        self.check_array_mutation(name, &left_ty, right, &right_ty);
+
         // select / # element type
         if name == "#" || name.eq_ignore_ascii_case("select") {
             match &left_ty {
@@ -848,6 +852,129 @@ impl CheckCtx<'_> {
         }
 
         self.resolve_command(name, CallKind::Binary, &[left_ty, right_ty], span)
+    }
+
+    /// When the left operand is homogeneous `T[]` (or a brand that is structurally
+    /// `T[]`), check mutation RHS values against `T`.
+    fn check_array_mutation(
+        &mut self,
+        name: &str,
+        left_ty: &Type,
+        right: &Expression,
+        right_ty: &Type,
+    ) {
+        let Some(elem_ty) = array_element_ty(left_ty) else {
+            return;
+        };
+
+        if name.eq_ignore_ascii_case("pushBack") || name.eq_ignore_ascii_case("pushBackUnique") {
+            if !is_assignable(right_ty, &elem_ty, &self.flags) {
+                self.diagnostics.push(Diagnostic::error(
+                    StsCode::AssignMismatch,
+                    format!("`{right_ty}` not assignable to `{elem_ty}` for array element"),
+                    right.span(),
+                ));
+            }
+            return;
+        }
+
+        if name.eq_ignore_ascii_case("append") {
+            self.check_array_elems_assignable(right_ty, &elem_ty, right.span());
+            return;
+        }
+
+        if name.eq_ignore_ascii_case("set") {
+            if let Expression::Array(elems, _) = right {
+                if let Some(val) = elems.get(1) {
+                    let vt = self.type_of(val);
+                    if !is_assignable(&vt, &elem_ty, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{vt}` not assignable to `{elem_ty}` for array element"),
+                            val.span(),
+                        ));
+                    }
+                }
+            }
+            return;
+        }
+
+        if name.eq_ignore_ascii_case("insert") {
+            // `arr insert [index, valuesToInsert, …]`
+            if let Expression::Array(elems, _) = right {
+                if let Some(values) = elems.get(1) {
+                    let vt = self.type_of(values);
+                    self.check_array_elems_assignable(&vt, &elem_ty, values.span());
+                }
+            } else if let Type::Tuple(elems) = right_ty {
+                if let Some((values_ty, _)) = elems.get(1) {
+                    self.check_array_elems_assignable(values_ty, &elem_ty, right.span());
+                }
+            }
+            return;
+        }
+
+        if name.eq_ignore_ascii_case("resize") {
+            // `arr resize count` or `arr resize [count, fill]`
+            if let Expression::Array(elems, _) = right {
+                if let Some(fill) = elems.get(1) {
+                    let ft = self.type_of(fill);
+                    if !is_assignable(&ft, &elem_ty, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{ft}` not assignable to `{elem_ty}` for array element"),
+                            fill.span(),
+                        ));
+                    }
+                }
+            } else if let Type::Tuple(elems) = right_ty {
+                if let Some((fill_ty, _)) = elems.get(1) {
+                    if !is_assignable(fill_ty, &elem_ty, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!(
+                                "`{fill_ty}` not assignable to `{elem_ty}` for array element"
+                            ),
+                            right.span(),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Check that every known element of `collection` is assignable to `elem_ty`.
+    /// Untyped `array` / `any` are gradual and skipped.
+    fn check_array_elems_assignable(
+        &mut self,
+        collection: &Type,
+        elem_ty: &Type,
+        span: Range<usize>,
+    ) {
+        match collection {
+            Type::Tuple(elems) => {
+                for (t, _) in elems {
+                    if !is_assignable(t, elem_ty, &self.flags) {
+                        self.diagnostics.push(Diagnostic::error(
+                            StsCode::AssignMismatch,
+                            format!("`{t}` not assignable to `{elem_ty}` for array element"),
+                            span.clone(),
+                        ));
+                    }
+                }
+            }
+            Type::ArrayOf(inner) => {
+                if !is_assignable(inner, elem_ty, &self.flags) {
+                    self.diagnostics.push(Diagnostic::error(
+                        StsCode::AssignMismatch,
+                        format!("`{inner}` not assignable to `{elem_ty}` for array element"),
+                        span,
+                    ));
+                }
+            }
+            Type::Primitive(Primitive::Array | Primitive::Any) => {}
+            _ => {}
+        }
     }
 
     fn check_fn_args(
@@ -972,14 +1099,12 @@ impl CheckCtx<'_> {
         if args.is_empty() && (params.is_empty() || params.iter().all(|p| p.optional)) {
             return true;
         }
-        // Very gradual: if the expected type is any / array / named unknown, accept.
+        // Gradual: only `any` and opaque named wiki atoms soft-match. Expected
+        // `array` / `T[]` / tuples require real assignability (B-ArraySoundness).
         let soft = |expected: &Type| {
             matches!(
                 expected,
-                Type::Primitive(Primitive::Any | Primitive::Array)
-                    | Type::Named(_)
-                    | Type::ArrayOf(_)
-                    | Type::Tuple(_)
+                Type::Primitive(Primitive::Any) | Type::Named(_)
             )
         };
         if args.len() == 1 && !params.is_empty() {
@@ -1184,6 +1309,96 @@ titleText ["hi", "PLAIN"];
                 .iter()
                 .any(|d| d.code == StsCode::ArgMismatch),
             "expected arg mismatch, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn collection_commands_reject_non_arrays() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"{ hint "x" } forEach player;
+player apply { 1 };
+player select 0;
+player pushBack 1;
+"#;
+        let result = check_source(src, "collections.sqfts", &db, &decls, &flags).unwrap();
+        let mismatches = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == StsCode::ArgMismatch)
+            .count();
+        assert!(
+            mismatches >= 4,
+            "expected STS2003 for each non-array collection use, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn collection_commands_accept_real_arrays() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"{ hint "x" } forEach [1, 2];
+[1, 2] apply { 1 };
+private _names: string[] = ["a", "b"];
+_names pushBack "c";
+"#;
+        let result = check_source(src, "collections_ok.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::ArgMismatch && d.code != StsCode::AssignMismatch),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn array_mutation_checks_element_types() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _names: string[] = ["a", "b"];
+_names pushBack 1;
+_names set [0, 99];
+_names append [1, 2];
+"#;
+        let result = check_source(src, "mutation.sqfts", &db, &decls, &flags).unwrap();
+        let mismatches = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == StsCode::AssignMismatch)
+            .count();
+        assert!(
+            mismatches >= 3,
+            "expected STS2004 for each bad mutation, got {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn untyped_array_mutation_is_gradual() {
+        let db = CommandDb::load_default().unwrap();
+        let decls = DeclarationSet::default();
+        let flags = CheckFlags::default();
+
+        let src = r#"private _a: array = [];
+_a pushBack 1;
+"#;
+        let result = check_source(src, "mutation_gradual.sqfts", &db, &decls, &flags).unwrap();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .all(|d| d.code != StsCode::ArgMismatch && d.code != StsCode::AssignMismatch),
+            "untyped array should allow any element, got {:?}",
             result.diagnostics
         );
     }

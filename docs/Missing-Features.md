@@ -24,7 +24,7 @@ For the short roadmap pointer, see [Future Work](Future-Work).
 
 ## Highlighted holes
 
-These three are the most visible day-to-day gaps relative to typed arrays and TypeScript callables.
+The most visible day-to-day gap relative to TypeScript callables:
 
 ### Opaque `code` (planned · P0 · B-TypedCode)
 
@@ -39,33 +39,12 @@ private _onKilled: code = { hint str _this };
 // private _pred: code(unit: object) => boolean = { alive _this };
 ```
 
-### Array mutation ignores element types (soundness hole · P0 · B-ArraySoundness)
-
-Homogeneous `T[]` exists, but mutating commands treat the element as `any` and do not check assignability to `T`.
-
-```sqfts
-private _names: string[] = ["a", "b"];
-_names pushBack 1;       // should error; currently accepted
-_names set [0, 99];      // should error; currently accepted
-_names append [1, 2];    // should error; currently accepted
-```
-
-### Collection commands accept non-arrays (soundness hole · P0 · B-ArraySoundness)
-
-Expected wiki type `array` is soft-matched, so a wrong collection (e.g. `player`) often passes.
-
-```sqfts
-{ hint "x" } forEach player;   // should error; currently accepted
-player apply { 1 };            // should error; currently accepted
-player select 0;               // should error; currently accepted
-player pushBack 1;             // should error; currently accepted
-```
-
+**B-ArraySoundness (P0)** is done: non-array collections are rejected for `forEach` / `apply` / `select` / `pushBack` / …, and mutation values are checked against `T` for `T[]`. Follow-ons (`readonly T[]`, safer `#`) remain below.
 ## Bundles (implement together)
 
 | Bundle | Contents | Why together |
 |---|---|---|
-| **B-ArraySoundness** | Reject non-array collections for `forEach`, `apply`, `select`, `pushBack`, `set`, `append`, …; check mutation values against `T` for `T[]`; tighten soft-match for expected `array` | Same root cause in gradual overload matching |
+| **B-ArraySoundness** | P0 done (reject non-array collections; mutation values vs `T` for `T[]`; tight soft-match for expected `array`). Follow-ons: `readonly T[]`, safer `#` | Same root cause in gradual overload matching |
 | **B-ArrayGenerics** | Preserve / map element types through `select` / `apply` / `findIf`-style commands; fix `T[] select code` returning `T` instead of `T[]` | Needs sound collection typing first |
 | **B-TypedCode** | `code(_this: T, …) => R` syntax + assignability; bind `_this` / params for literals from context; check `code \| string` DB payloads | Unlocks handlers and callable richness |
 | **B-EventHandlers** | `addEventHandler ["Killed", …]` (and similar) payload tables from wiki event data | Depends on typed `code` |
@@ -78,7 +57,7 @@ player pushBack 1;             // should error; currently accepted
 
 ### Suggested implementation order
 
-1. **B-ArraySoundness**
+1. ~~**B-ArraySoundness**~~ (P0 done; follow-ons remain)
 2. **B-Narrowing**
 3. **B-TypedCode**
 4. **B-ArrayGenerics**
@@ -139,9 +118,9 @@ player pushBack 1;             // should error; currently accepted
 | Feature | TS analogue | Status | Priority | Bundle |
 |---|---|---|---|---|
 | Homogeneous `T[]` / tuples | `T[]` / `[A, B]` | present | — | — |
-| Mutation element checking (`pushBack`, `set`, …) | mutable array element checks | **soundness hole** | P0 | B-ArraySoundness |
-| Collection argument checking (`forEach`, `apply`, …) | receiver typing | **soundness hole** | P0 | B-ArraySoundness |
-| Soft-match of expected `array` | gradual call checking | **soundness hole** | P0 | B-ArraySoundness |
+| Mutation element checking (`pushBack`, `set`, …) | mutable array element checks | present | — | B-ArraySoundness |
+| Collection argument checking (`forEach`, `apply`, …) | receiver typing | present | — | B-ArraySoundness |
+| Soft-match of expected `array` | gradual call checking | present (tightened) | — | B-ArraySoundness |
 | `readonly T[]` | `ReadonlyArray<T>` | missing | P2 | B-ArraySoundness (follow-on) |
 | Safer indexing (`T \| nothing` for `#`) | `noUncheckedIndexedAccess` | missing | P2 | B-ArraySoundness (follow-on) |
 | Empty `[]` assignable to `T[]` | `[] as T[]` / contextual typing | partial (often rejected today) | P1 | B-ArrayGenerics |
@@ -198,7 +177,7 @@ TypeScript features that do not map cleanly onto SQF / SQFts. Do not prioritize 
 1. **Narrowing / `strictNil`:** [Unions and Narrowing](Unions-and-Narrowing) and the archived SPEC describe v1 `isNil` / `isEqualType` narrowing. The checker still treats this as future work (“narrowing later”); `STS2202` is not emitted. Treat as incomplete, not done.
 2. **Literal types:** Shipped now ([Literal Types](Literal-Types)). Older SPEC §9 listing them as future is stale.
 3. **Macro annotations:** Checking runs after preprocess; do not list as missing ([FAQ](FAQ)).
-4. **Array holes:** Typed arrays are documented as working for `#` / assignability, but mutation and collection soft-matching are undocumented soundness holes (see above).
+4. **Array follow-ons:** Mutation and collection soft-matching P0 holes are closed. Remaining B-ArraySoundness follow-ons: `readonly T[]`, safer `#` → `T | nothing` (see inventory).
 5. **Several `STS` codes** exist in the diagnostics enum without emitters yet (e.g. return-body mismatch, use-of-`nothing`, illegal cast). Closing those belongs with the related bundles, not as a separate laundry list.
 
 ## Related

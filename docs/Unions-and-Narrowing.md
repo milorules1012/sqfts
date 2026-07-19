@@ -41,10 +41,12 @@ With [`strictNil`](Strictness-Flags), using `_note` as `string` outside a narrow
 
 ## What is not in v1
 
-Richer narrowing is [future work](Future-Work):
+Richer narrowing is tracked under [Missing Features](Missing-Features) (bundle **B-Narrowing**):
 
 - `typeName` / `isEqualTypeArray` maps
 - Discriminated tuples
 - Exhaustiveness checking for `switch`
 
 Until then, use casts when you know more than the checker.
+
+> **Caveat:** even the minimal `isNil` / `isEqualType` narrowing described above is not fully enforced by the checker yet; see Missing Features.

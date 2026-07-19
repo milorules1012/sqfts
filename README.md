@@ -30,7 +30,7 @@ SQFts is a TypeScript-style, gradually typed superset of Arma 3 SQF. Every valid
 
 ## Project status
 
-The core compiler toolchain, language server, editor extension, and declaration generator are implemented. The language remains under active development; see [Future Work](docs/Future-Work.md) for planned additions.
+The core compiler toolchain, language server, editor extension, and declaration generator are implemented. The language remains under active development; see [Missing Features](docs/Missing-Features.md) for the gap inventory and [Future Work](docs/Future-Work.md) for the short roadmap pointer.
 
 ## Quick start
 

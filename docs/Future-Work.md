@@ -2,35 +2,8 @@
 
 Non-normative roadmap. Recorded so syntax stays forward-compatible; not part of the v1 conformance surface.
 
-## Planned / considered
-
-### Typed code values
-
-```text
-code(_unit: object) => boolean
-```
-
-For event-handler and `addAction` parameters. Would let the database’s `code | string` unions check their payloads.
-
-### Richer narrowing
-
-- `typeName` / `isEqualTypeArray` maps
-- Discriminated tuples
-- Exhaustiveness for `switch`
-
-### Generics
-
-- `T[] select code` preserving `T`
-- `apply` mapping types
-
-### Parameterized HashMaps
-
-`hashMap<K, V>` beyond [interfaces](Interfaces).
-
-### Event-handler name typing
-
-`addEventHandler ["Killed", …]` selecting a payload tuple from an event table (arma3-wiki ships event data usable for this).
+The detailed inventory of TypeScript-inspired gaps, soundness holes, and implementation **bundles** lives in [Missing Features](Missing-Features). Prefer that page when planning work.
 
 ## Conformance reminder
 
-An implementation is conforming for v1 if it satisfies SPEC §10 (accept all SQF unchanged, parse grammar deltas, check per §1–§5, erase per §7). Future features above must not break those guarantees for existing SQFts programs.
+An implementation is conforming for v1 if it satisfies SPEC §10 (accept all SQF unchanged, parse grammar deltas, check per §1–§5, erase per §7). Future features must not break those guarantees for existing SQFts programs.

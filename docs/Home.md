@@ -77,7 +77,8 @@ private _owner = _vehicle getVariable ["project_owner", objNull];
 | [Grammar](Grammar) | Formal grammar deltas over SQF |
 | [Architecture](Architecture) | Crates and pipeline |
 | [Adoption Guide](Adoption-Guide) | Typing an existing mission without rewriting it |
-| [Future Work](Future-Work) | Non-normative roadmap |
+| [Missing Features](Missing-Features) | TypeScript gaps and soundness holes (bundled for implementation) |
+| [Future Work](Future-Work) | Short roadmap pointer |
 | [FAQ](FAQ) | Common questions |
 
 The normative [language specification](https://github.com/milorules1012/sqfts/blob/main/docs/design-history/language-specification.md) is preserved with the project’s design history. This handbook is the human-oriented guide; if a handbook page and the specification disagree, **the specification wins** — except where design history notes that engine-command loading now comes solely from [arma3-wiki](Engine-Command-Database).

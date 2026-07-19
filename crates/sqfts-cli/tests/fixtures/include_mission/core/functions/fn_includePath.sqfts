@@ -1,0 +1,2 @@
+#include "\shared.h"
+private _n: number = SHARED_VALUE;

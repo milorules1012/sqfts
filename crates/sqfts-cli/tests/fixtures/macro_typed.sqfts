@@ -1,0 +1,3 @@
+#define TYPED private _x: number = 1;
+TYPED
+_x = "nope";

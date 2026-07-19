@@ -57,9 +57,9 @@ Details: [Type Checking](Type-Checking).
 
 `type`, `declare`, `interface`, and `as` are **contextual**. They are keywords only in the positions defined by the grammar; elsewhere they remain ordinary SQF identifiers (e.g. `type = 5;` still assigns a global named `type`).
 
-## Preprocessor note (v1)
+## Preprocessor note
 
-Checking runs **after** the HEMTT preprocessor. Erasure runs on the **unpreprocessed** source so byte-stable identity holds. Consequently, in v1 annotations must appear **literally** in `.sqfts` source — annotations produced only by macro expansion are out of scope.
+Checking runs **after** the HEMTT preprocessor. Annotations may be introduced by macro expansion; the checker scans the processed buffer and erases those constructs before parsing. Emit rewrites unpreprocessed files (including `#define` bodies) so byte-stable identity holds.
 
 ## Mental model
 

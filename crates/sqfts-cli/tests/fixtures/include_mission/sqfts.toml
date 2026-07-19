@@ -1,0 +1,3 @@
+sources = ["."]
+out_dir = "out_sqf"
+include_paths = ["include"]

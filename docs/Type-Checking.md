@@ -49,8 +49,9 @@ TypeScript-style: primary span plus related spans. Through the preprocessor’s 
 ## Pipeline (implementation)
 
 1. Scan / erase annotations on **unpreprocessed** source (byte-stable spans)
-2. Run HEMTT preprocessor + parser on erased SQF
-3. Type-check against engine DB + loaded declarations
-4. Map diagnostic spans back to original `.sqfts` locations
+2. Run HEMTT preprocessor on erased SQF (disk workspace + `include_paths` when configured)
+3. Scan / erase any annotations that appear only after macro expansion; parse the result
+4. Type-check against engine DB + loaded declarations
+5. Map diagnostic spans back to original `.sqfts` locations (through Processed + SpanMap)
 
-v1 restriction: annotations must appear literally in source (not only via macro expansion).
+Annotations in `#define` bodies are erased from those original spans on emit.

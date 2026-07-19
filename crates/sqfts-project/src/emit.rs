@@ -15,7 +15,13 @@ pub fn emit_file(cfg: &SqftsConfig, path: &Path, src: &str) -> Result<PathBuf> {
     let erased = if cfg.emit_runtime_params {
         erase_with_runtime_params(src)?
     } else {
-        erase(src, &EraseOptions::default())?
+        erase(
+            src,
+            &EraseOptions {
+                erase_define_bodies: true,
+                ..EraseOptions::default()
+            },
+        )?
     };
     let out_root = cfg.resolve(cfg.out_dir.to_string_lossy().as_ref());
     let rel = path

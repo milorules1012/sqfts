@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use sqfts_check::{check_source, load_declarations, CheckResult, DeclarationSet};
+use sqfts_check::{check_source_with, load_declarations, CheckResult, DeclarationSet};
 use sqfts_db::CommandDb;
 
 use crate::config::SqftsConfig;
@@ -49,12 +49,18 @@ impl Project {
 
     /// Type-check a single file's source text.
     pub fn check_file(&self, path: &Path, source: &str) -> Result<CheckResult> {
-        check_source(
+        let workspace = sqfts_check::CheckWorkspace {
+            source_path: Some(path.to_path_buf()),
+            project_root: Some(self.config.root.clone()),
+            include_paths: self.config.resolved_include_paths(),
+        };
+        check_source_with(
             source,
             path.to_string_lossy().as_ref(),
             &self.db,
             &self.decls,
             &self.config.flags,
+            &workspace,
         )
         .map_err(Into::into)
     }

@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use crate::scan::{scan, Annotation, EraseHint, ScanError, ScanResult};
+use crate::scan::{scan_with, Annotation, EraseHint, ScanError, ScanResult};
 use crate::typ::Type;
 
 /// Options controlling erasure.
@@ -10,6 +10,11 @@ use crate::typ::Type;
 pub struct EraseOptions {
     /// When true, typed `params` also emit runtime guard arrays (SPEC §7.4).
     pub emit_runtime_params: bool,
+    /// When true, also erase annotations inside `#define` replacement lists.
+    ///
+    /// Check leaves define bodies intact so macros still expand with types;
+    /// `sqfts build` sets this so emit strips those original spans.
+    pub erase_define_bodies: bool,
 }
 
 /// Maps erased-file offsets back to original offsets.
@@ -78,7 +83,7 @@ pub struct ErasedSource {
 
 /// Erase SQFts annotations from `source`.
 pub fn erase(source: &str, options: &EraseOptions) -> Result<ErasedSource, ScanError> {
-    let scanned = scan(source)?;
+    let scanned = scan_with(source, options.erase_define_bodies)?;
     erase_scanned(&scanned, options)
 }
 
@@ -269,9 +274,10 @@ fn format_string_lit_exemplar(s: &str) -> String {
 
 /// Erase with full runtime-params lowering (needs original source for defaults).
 pub fn erase_with_runtime_params(source: &str) -> Result<ErasedSource, ScanError> {
-    let scanned = scan(source)?;
+    let scanned = scan_with(source, true)?;
     let mut options = EraseOptions {
         emit_runtime_params: false,
+        erase_define_bodies: true,
     };
     // First get normal erasure edits, then patch typed params.
     // Simpler: rebuild edits manually with runtime form.
@@ -437,5 +443,35 @@ private _owner: object = _vehicle getVariable ["project_owner", objNull];
         assert!(erased
             .text
             .contains("private _owner = _vehicle getVariable"));
+    }
+
+    #[test]
+    fn define_body_typed_private_erased() {
+        let src = "#define TYPED private _x: number = 1;\nTYPED\n";
+        let erased = erase(
+            src,
+            &EraseOptions {
+                erase_define_bodies: true,
+                ..EraseOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            erased.text.contains("#define TYPED private _x = 1;"),
+            "got: {:?}",
+            erased.text
+        );
+        assert!(!erased.text.contains(": number"));
+    }
+
+    #[test]
+    fn define_body_preserved_when_not_erasing_defines() {
+        let src = "#define TYPED private _x: number = 1;\nTYPED\n";
+        let erased = erase(src, &EraseOptions::default()).unwrap();
+        assert!(
+            erased.text.contains("private _x: number = 1;"),
+            "check path should leave define bodies intact, got: {:?}",
+            erased.text
+        );
     }
 }
